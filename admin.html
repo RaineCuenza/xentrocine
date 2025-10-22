@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin — XentroCine </title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="admin">
+  <header class="site-header">
+    <a class="brand" href="index.html">XentroCine </a>
+    <nav class="nav">
+      <a class="nav__link" href="index.html">Home</a>
+      <a class="nav__link" href="booking.html">Booking & Reservation</a>
+      <a class="nav__link" href="about.html">About</a>
+      <a class="nav__link nav__link--active" href="admin.html">Admin</a>
+    </nav>
+    <div class="account">
+      <span id="currentUser" class="account__who">Guest</span>
+      <a id="loginBtn" class="btn btn--primary" href="login.html">Log in / Sign up</a>
+      <button id="logoutBtn" class="btn" style="display:none">Log out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>Admin Dashboard</h1>
+    <div class="admin-kpis">
+      <div class="kpi"><div class="kpi__label">Total Movies</div><div id="kpiMovies" class="kpi__value">0</div></div>
+      <div class="kpi"><div class="kpi__label">Total Bookings</div><div id="kpiBookings" class="kpi__value">0</div></div>
+      <div class="kpi"><div class="kpi__label">Paid</div><div id="kpiPaid" class="kpi__value">0</div></div>
+      <div class="kpi"><div class="kpi__label">Pending</div><div id="kpiPending" class="kpi__value">0</div></div>
+      <div class="kpi"><div class="kpi__label">Cancelled</div><div id="kpiCancelled" class="kpi__value">0</div></div>
+    </div>
+
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h2>Manage Movies</h2>
+        <form id="movieForm" class="authform row" novalidate>
+          <input id="mvTitle" type="text" placeholder="Title" required/>
+          <input id="mvPrice" type="number" placeholder="Price (₱)" min="100" required/>
+          <input id="mvRating" type="number" placeholder="Rating (1-5)" min="1" max="5" step="0.1" required/>
+          <input id="mvPoster" type="url" placeholder="Poster URL (optional)"/>
+          <input id="mvTimes" type="text" placeholder="Showtimes (e.g., 13:00,15:30)" required/>
+          <button class="btn btn--primary" type="submit">Add Movie</button>
+          <div id="movieErr" class="form-error"></div>
+        </form>
+        <ul id="adminMovieList" class="admin-list"></ul>
+      </div>
+
+      <div class="admin-card">
+        <h2>All Bookings</h2>
+        <ul id="adminBookingList" class="booking-list"></ul>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <small>© <span id="year"></span> XentroCine </small>
+  </footer>
+  <script src="app-api.js" defer></script>
+</body>
+</html>

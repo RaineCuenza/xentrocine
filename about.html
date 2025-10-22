@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>About — XentroCine </title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="about">
+  <header class="site-header">
+    <a class="brand" href="index.html">XentroCine </a>
+    <nav class="nav">
+      <a class="nav__link" href="index.html">Home</a>
+      <a class="nav__link" href="booking.html">Booking & Reservation</a>
+      <a class="nav__link nav__link--active" href="about.html">About</a>
+      <a class="nav__link nav__admin" href="admin.html" style="display:none">Admin</a>
+    </nav>
+    <div class="account">
+      <span id="currentUser" class="account__who">Guest</span>
+      <a id="loginBtn" class="btn btn--primary" href="login.html">Log in / Sign up</a>
+      <button id="logoutBtn" class="btn" style="display:none">Log out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>About XentroCine </h1>
+    <p class="muted">
+Book seats fast. Pay your way. Watch more.
+</p>
+    <ul class="ticks">
+      <li>No address/email required during booking</li>
+      <li>Auto-cancel unpaid cash reservations after 48 hours</li>
+      <li>Admin dashboard for movies, bookings, and reports</li>
+    </ul>
+  </main>
+
+  <footer class="site-footer">
+    <small>© <span id="year"></span> XentroCine </small>
+  </footer>
+  <script src="app-api.js" defer></script>
+</body>
+</html>
