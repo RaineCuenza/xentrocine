@@ -1,4 +1,4 @@
-# 🎬 XentroCine - Movie Booking System
+# XentroCine - Movie Booking System
 
 ## Setup Guide
 
@@ -6,7 +6,7 @@ Follow these steps to set up and run the project on your local machine.
 
 ---
 
-## 📋 Step 1: Install Required Software
+## Step 1: Install Required Software
 
 ### 1.1 Install Node.js
 
@@ -30,7 +30,7 @@ npm --version
 
 ---
 
-## 🗄️ Step 2: Setup Database
+## Step 2: Setup Database
 
 ### 2.1 Start XAMPP
 
@@ -77,7 +77,7 @@ npm --version
 
 ---
 
-## 🚀 Step 3: Install Project Dependencies
+## Step 3: Install Project Dependencies
 
 1. Open **PowerShell** or **Command Prompt**
 2. Navigate to the project folder:
@@ -113,7 +113,7 @@ npm start
 
 **You should see:**
 ```
-✅ Database connected successfully
+ Database connected successfully
 
 🎬 ================================ 🎬
    XentroCine Server Running!
@@ -134,7 +134,7 @@ npm start
 
 ---
 
-## 🔐 Login Credentials
+## Login Credentials
 
 Use these credentials to test the application:
 
@@ -148,7 +148,7 @@ Use these credentials to test the application:
 
 ---
 
-## ✅ Verify Everything Works
+## Verify Everything Works
 
 ### Test 1: Homepage
 - Visit: http://localhost:3000
@@ -171,22 +171,22 @@ Use these credentials to test the application:
 
 ---
 
-## 🆘 Troubleshooting
+## Troubleshooting
 
-### ❌ "Cannot connect to database"
+### "Cannot connect to database"
 
 **Solutions:**
 1. Check XAMPP MySQL is running (green in Control Panel)
 2. Make sure database `xentrocine_db` exists in phpMyAdmin
 3. Verify you imported both `schema.sql` and `seed.sql`
 
-### ❌ "Port 3000 is already in use"
+### "Port 3000 is already in use"
 
 **Solutions:**
 1. Close other applications using port 3000
 2. Or edit the `.env` file and change `PORT=3001`
 
-### ❌ "Module not found" errors
+### "Module not found" errors
 
 **Solutions:**
 ```powershell
@@ -195,14 +195,14 @@ Remove-Item -Recurse -Force node_modules
 npm install
 ```
 
-### ❌ "XAMPP MySQL won't start"
+### "XAMPP MySQL won't start"
 
 **Solutions:**
 1. Check if another MySQL service is running
 2. Change MySQL port in XAMPP config
 3. Run XAMPP as Administrator
 
-### ❌ Login doesn't work
+### Login doesn't work
 
 **Solutions:**
 1. Make sure you imported `database/seed.sql`
@@ -211,7 +211,7 @@ npm install
 
 ---
 
-## 🔄 Daily Usage
+## Daily Usage
 
 **Every time you want to run the project:**
 
@@ -227,7 +227,7 @@ npm install
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 movie_booking_system/
@@ -250,7 +250,7 @@ movie_booking_system/
 
 ---
 
-## 💡 Important Notes
+## Important Notes
 
 1. **Keep XAMPP MySQL running** while using the application
 2. **Don't modify database files** unless you know what you're doing
@@ -281,9 +281,3 @@ npm run dev
 - [ ] Run `npm install`
 - [ ] Run `npm start`
 - [ ] Open http://localhost:3000
-
-**That's it! You're ready to use XentroCine! 🎉**
-
----
-
-**Need help?** Check the Troubleshooting section above.
