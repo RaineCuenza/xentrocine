@@ -97,6 +97,51 @@ added 179 packages in 15s
 
 ---
 
+## Step 3.5: Create your .env file (required)
+
+Before you start the server you must create a `.env` file from the included example. This file contains database and server settings and is ignored by Git so your secrets won't be committed.
+
+1. From the project root, copy the example file to `.env`:
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Edit `.env` and update the values below to match your environment (open it in your editor):
+
+- DB_HOST: usually `localhost` for XAMPP
+- DB_USER: MySQL username (default is `root` for XAMPP)
+- DB_PASSWORD: MySQL password for the above user (leave empty if you use no password for root)
+- DB_NAME: `xentrocine_db` (the database you created/imported)
+- DB_PORT: usually `3306` for MySQL
+- PORT: the server port (default `3000`)
+- NODE_ENV: `development` (or `production`)
+- SESSION_SECRET: replace `your-secret-key-change-this-in-production` with a secure random string
+
+Example minimal `.env` (do NOT commit this file):
+```text
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_mysql_password_here
+DB_NAME=xentrocine_db
+DB_PORT=3306
+
+PORT=3000
+NODE_ENV=development
+
+SESSION_SECRET=6f2e9c2b1a7f4e1c8d9b3a0f5c7d8e1a
+```
+
+3. (Optional) Generate a secure SESSION_SECRET using Node.js (recommended):
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Copy the output and paste it into `SESSION_SECRET` in `.env`.
+
+Notes:
+- The project already includes `.env` in `.gitignore`, so the real `.env` will not be tracked by Git.
+- If you change `PORT` make sure to open that port in your browser (e.g., `http://localhost:3001` if you set `PORT=3001`).
+
+
 ## ▶️ Step 4: Start the Application
 
 ### 4.1 Make Sure XAMPP MySQL is Running
