@@ -209,7 +209,3 @@ npm run build
 - Verify your `.env` database credentials
 - Ensure MySQL service is running
 - Check if the database exists
-
-## 📝 License
-
-This project is open-source software licensed under the [MIT license](https://opensource.org/licenses/MIT).
