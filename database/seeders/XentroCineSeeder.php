@@ -1,0 +1,90 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+use App\Models\Movie;
+use App\Models\Showtime;
+
+class XentroCineSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // Insert default admin user
+        User::create([
+            'id' => 'u_admin001',
+            'name' => 'Administrator',
+            'email' => 'admin@xentrocine.local',
+            'password' => 'Admin123!', // Will be hashed automatically
+            'role' => 'admin',
+        ]);
+
+        // Insert sample client users
+        User::create([
+            'id' => 'u_client001',
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => 'password123',
+            'role' => 'client',
+        ]);
+
+        User::create([
+            'id' => 'u_client002',
+            'name' => 'Jane Smith',
+            'email' => 'jane@example.com',
+            'password' => 'password123',
+            'role' => 'client',
+        ]);
+
+        // Insert sample movies
+        $movie1 = Movie::create([
+            'id' => 'mv100',
+            'title' => 'Star Quest',
+            'price' => 300.00,
+            'poster' => '/images/starquest.jpg',
+            'rating' => 4.5,
+        ]);
+
+        $movie2 = Movie::create([
+            'id' => 'mv200',
+            'title' => 'The Last Laugh',
+            'price' => 320.00,
+            'poster' => '/images/thelastlaugh.jpg',
+            'rating' => 4.2,
+        ]);
+
+        $movie3 = Movie::create([
+            'id' => 'mv300',
+            'title' => 'Hidden Tide',
+            'price' => 350.00,
+            'poster' => '/images/hiddentide.jpg',
+            'rating' => 4.7,
+        ]);
+
+        // Insert showtimes for Star Quest
+        Showtime::create(['movie_id' => 'mv100', 'showtime' => '13:00:00']);
+        Showtime::create(['movie_id' => 'mv100', 'showtime' => '15:30:00']);
+        Showtime::create(['movie_id' => 'mv100', 'showtime' => '18:00:00']);
+        Showtime::create(['movie_id' => 'mv100', 'showtime' => '20:30:00']);
+
+        // Insert showtimes for The Last Laugh
+        Showtime::create(['movie_id' => 'mv200', 'showtime' => '12:00:00']);
+        Showtime::create(['movie_id' => 'mv200', 'showtime' => '14:15:00']);
+        Showtime::create(['movie_id' => 'mv200', 'showtime' => '17:00:00']);
+        Showtime::create(['movie_id' => 'mv200', 'showtime' => '19:45:00']);
+        Showtime::create(['movie_id' => 'mv200', 'showtime' => '21:30:00']);
+
+        // Insert showtimes for Hidden Tide
+        Showtime::create(['movie_id' => 'mv300', 'showtime' => '11:00:00']);
+        Showtime::create(['movie_id' => 'mv300', 'showtime' => '13:45:00']);
+        Showtime::create(['movie_id' => 'mv300', 'showtime' => '16:15:00']);
+        Showtime::create(['movie_id' => 'mv300', 'showtime' => '18:45:00']);
+
+        $this->command->info('XentroCine seed data created successfully!');
+    }
+}
