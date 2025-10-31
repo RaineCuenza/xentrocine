@@ -4,58 +4,69 @@
 @section('page', 'booking')
 
 @section('content')
-<h1 class="mb-0">Book Now!</h1>
-<p class="muted">Select a movie, schedule, and seats. Payment options: <strong>Card</strong> (hold for 48h) or <strong>GCash</strong> (instant confirm).</p>
-
-<div class="filters">
-  <label>Movie
-    <select id="movieSelect"></select>
-  </label>
-  <label>Date
-    <input id="dateSelect" type="date"/>
-  </label>
-  <label>Showtime
-    <select id="showtimeSelect"></select>
-  </label>
-  <label>Cinema
-    <select id="cinemaSelect">
-      <option value="Cinema 1">Cinema 1</option>
-      <option value="Cinema 2">Cinema 2</option>
-    </select>
-  </label>
-</div>
-
-<div class="legend">
-  <span class="legend__item"><span class="seat"></span> Available (<span id="legendAvailable">0</span>)</span>
-  <span class="legend__item"><span class="seat seat--selected"></span> Selected (<span id="legendSelected">0</span>)</span>
-  <span class="legend__item"><span class="seat seat--occupied"></span> Reserved (<span id="legendReserved">0</span>)</span>
-</div>
-
-<div class="screen">SCREEN</div>
-<div id="seatMap" class="seats" role="grid" aria-label="Seat map"></div>
-
-<aside class="summary">
-  <div class="summary__row"><span>Selected seats:</span><strong id="selectedSeats">0</strong></div>
-  <div class="summary__row"><span>Price per seat:</span><strong>₱<span id="seatPrice">0</span></strong></div>
-  <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">0</span></strong></div>
-  <button id="addToCartBtn" class="btn" disabled>Add to cart</button>
-  <div id="authHint" class="form-help" style="display:none">Log in as Client to proceed.</div>
-</aside>
-
-<section class="cart">
-  <h3>Cart</h3>
-  <ul id="cartList" class="cart__list"></ul>
-  <div class="row">
-    <button id="goCheckoutBtn" class="btn btn--primary" disabled>Proceed to Payment</button>
-    <button id="clearCartBtn" class="btn btn--ghost" disabled>Clear Cart</button>
+  <!-- Email Verification Banner -->
+  <div id="verificationBanner" class="verification-banner" style="display:none">
+    <div class="verification-banner__content">
+      <strong>⚠️ Please verify your email</strong>
+      <p>You need to verify your email address before you can book tickets.</p>
+      <button id="resendVerificationBtn" class="btn btn--primary">Resend Verification Email</button>
+    </div>
   </div>
-</section>
 
-<section class="my-bookings">
-  <h3>My Bookings</h3>
-  <p class="muted">Your reservation history (signed-in users only).</p>
-  <ul id="bookingList" class="booking-list"></ul>
-</section>
+  <!-- Booking Form (single column) -->
+  <div class="booking-main">
+    <h1 class="mb-0">Book Now!</h1>
+    <p class="muted">Select a movie, schedule, and seats. Payment options: <strong>Card</strong> (hold for 48h) or <strong>GCash</strong> (instant confirm).</p>
+    
+    <div class="filters">
+      <label>Movie
+        <select id="movieSelect"></select>
+      </label>
+      <label>Date
+        <input id="dateSelect" type="date" min="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}" data-server-date="{{ date('Y-m-d') }}"/>
+      </label>
+      <label>Showtime
+        <select id="showtimeSelect"></select>
+      </label>
+      <label>Cinema
+        <select id="cinemaSelect">
+          <option value="Cinema 1">Cinema 1</option>
+          <option value="Cinema 2">Cinema 2</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="legend">
+      <span class="legend__item"><span class="seat"></span> Available (<span id="legendAvailable">0</span>)</span>
+      <span class="legend__item"><span class="seat seat--selected"></span> Selected (<span id="legendSelected">0</span>)</span>
+      <span class="legend__item"><span class="seat seat--occupied"></span> Reserved (<span id="legendReserved">0</span>)</span>
+    </div>
+
+    <div class="screen">SCREEN</div>
+    <div id="seatMap" class="seats" role="grid" aria-label="Seat map"></div>
+
+    <aside class="summary">
+      <div class="summary__row"><span>Selected seats:</span><strong id="selectedSeats">0</strong></div>
+      <div class="summary__row"><span>Price per seat:</span><strong>₱<span id="seatPrice">0</span></strong></div>
+      <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">0</span></strong></div>
+      <button id="addToCartBtn" class="btn" disabled>Add to cart</button>
+      <div id="authHint" class="form-help" style="display:none">Log in as Client to proceed.</div>
+    </aside>
+
+    <section class="cart">
+      <h3>Cart</h3>
+      <ul id="cartList" class="cart__list"></ul>
+      <div class="row">
+        <button id="goCheckoutBtn" class="btn btn--primary" disabled>Proceed to Payment</button>
+        <button id="clearCartBtn" class="btn btn--ghost" disabled>Clear Cart</button>
+      </div>
+    </section>
+    <section class="my-bookings">
+      <h3>My Bookings</h3>
+      <p class="muted">Your reservation history (signed-in users only).</p>
+      <ul id="bookingList" class="booking-list"></ul>
+    </section>
+  </div>
 
 <section id="paymentSection" class="payment" style="display:none">
   <h2>Payment</h2>

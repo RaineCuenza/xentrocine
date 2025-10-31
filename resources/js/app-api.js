@@ -80,6 +80,9 @@ const checkoutItemsEl = document.getElementById('checkoutItems');
 const checkoutTotalEl = document.getElementById('checkoutTotal');
 const placeOrderBtnEl = document.getElementById('placeOrderBtn');
 
+const verificationBanner = document.getElementById('verificationBanner');
+const resendVerificationBtn = document.getElementById('resendVerificationBtn');
+
 const legendAvailableEl = document.getElementById('legendAvailable');
 const legendSelectedEl = document.getElementById('legendSelected');
 const legendReservedEl = document.getElementById('legendReserved');
@@ -150,6 +153,14 @@ function updateAccountUI() {
   if (logoutBtn) logoutBtn.style.display = state.currentUser ? '' : 'none';
   if (adminNavBtn) {
     adminNavBtn.style.display = (state.currentUser && state.currentUser.role === 'admin') ? '' : 'none';
+  }
+  
+  // Show/hide verification banner
+  if (verificationBanner && state.currentUser) {
+    const needsVerification = !state.currentUser.email_verified;
+    verificationBanner.style.display = needsVerification ? '' : 'none';
+  } else if (verificationBanner) {
+    verificationBanner.style.display = 'none';
   }
 }
 
@@ -231,6 +242,24 @@ function initAuthPage() {
         window.location.href = '/';
       } catch (error) {
         console.error('Logout failed:', error);
+      }
+    });
+  }
+
+  // Resend verification email
+  if (resendVerificationBtn) {
+    resendVerificationBtn.addEventListener('click', async () => {
+      resendVerificationBtn.disabled = true;
+      resendVerificationBtn.textContent = 'Sending...';
+      
+      try {
+        const data = await apiCall('/auth/email/resend', { method: 'POST' });
+        alert(data.message || 'Verification email sent! Check your inbox.');
+      } catch (error) {
+        alert(error.message || 'Failed to send verification email');
+      } finally {
+        resendVerificationBtn.disabled = false;
+        resendVerificationBtn.textContent = 'Resend Verification Email';
       }
     });
   }
@@ -350,8 +379,28 @@ async function initBookingPage() {
       } catch (e) { }
     }
 
-    // Set default date
-    if (dateSelect) dateSelect.value = new Date().toISOString().slice(0, 10);
+    // Set default date (use server date from data attribute, fallback to browser date)
+    if (dateSelect) {
+      const serverDate = dateSelect.getAttribute('data-server-date');
+      if (serverDate) {
+        dateSelect.value = serverDate;
+      } else {
+        // Fallback to browser date if server date not available
+        dateSelect.value = new Date().toISOString().slice(0, 10);
+      }
+      
+      // Make calendar picker open automatically when field is clicked
+      dateSelect.addEventListener('click', function(e) {
+        if (this.showPicker) {
+          try {
+            this.showPicker();
+          } catch(err) {
+            // Fallback for browsers that don't support showPicker
+            console.log('showPicker not supported');
+          }
+        }
+      });
+    }
 
     // Event listeners
     function refreshShowtimes() {
@@ -366,16 +415,41 @@ async function initBookingPage() {
         });
       }
       if (seatPriceDisplay) seatPriceDisplay.textContent = mv.price;
+      selected.clear(); // Clear seat selection when movie changes
       renderSeatMap();
     }
 
-    if (movieSelect) movieSelect.addEventListener('change', refreshShowtimes);
-    if (showtimeSelect) showtimeSelect.addEventListener('change', renderSeatMap);
-    if (dateSelect) dateSelect.addEventListener('change', renderSeatMap);
-    if (cinemaSelect) cinemaSelect.addEventListener('change', renderSeatMap);
-
     // Seat selection
     const selected = new Set();
+
+    // Clear selection and re-render when session parameters change
+    if (movieSelect) movieSelect.addEventListener('change', refreshShowtimes);
+    if (showtimeSelect) showtimeSelect.addEventListener('change', () => {
+      selected.clear();
+      renderSeatMap();
+    });
+    if (dateSelect) {
+      dateSelect.addEventListener('change', () => {
+        // Validate date is not in the past (use server date from min attribute)
+        const selectedDate = new Date(dateSelect.value);
+        const minDate = new Date(dateSelect.getAttribute('min'));
+        
+        if (selectedDate < minDate) {
+          alert('Cannot book tickets for past dates. Please select today or a future date.');
+          // Reset to server date
+          const serverDate = dateSelect.getAttribute('data-server-date');
+          dateSelect.value = serverDate || new Date().toISOString().slice(0, 10);
+          return;
+        }
+        
+        selected.clear();
+        renderSeatMap();
+      });
+    }
+    if (cinemaSelect) cinemaSelect.addEventListener('change', () => {
+      selected.clear();
+      renderSeatMap();
+    });
 
     async function renderSeatMap() {
       if (!seatMapEl) return;
@@ -471,20 +545,35 @@ async function initBookingPage() {
         const seats = Array.from(seatMapEl.querySelectorAll('.seat--selected')).map(s => s.dataset.seat);
         if (seats.length === 0) return alert('Select seats first');
 
-        const itemId = `ci_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
-        const item = {
-          id: itemId,
-          movieId: mv.id,
-          title: mv.title,
-          date,
-          time,
-          cinema,
-          seats,
-          seatPrice: mv.price,
-          total: mv.price * seats.length
-        };
+        // Find existing cart item for this session
+        let cartItem = state.cart.find(
+          it => it.movieId === mv.id && it.date === date && it.time === time && it.cinema === cinema
+        );
 
-        state.cart.push(item);
+        if (cartItem) {
+          // Only add seats that are not already present
+          const newSeats = seats.filter(seat => !cartItem.seats.includes(seat));
+          if (newSeats.length === 0) {
+            alert('Selected seats are already in cart');
+            return;
+          }
+          cartItem.seats = cartItem.seats.concat(newSeats);
+          cartItem.total = mv.price * cartItem.seats.length;
+        } else {
+          const itemId = `ci_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
+          const item = {
+            id: itemId,
+            movieId: mv.id,
+            title: mv.title,
+            date,
+            time,
+            cinema,
+            seats,
+            seatPrice: mv.price,
+            total: mv.price * seats.length
+          };
+          state.cart.push(item);
+        }
         renderCart();
         renderSeatMap();
       });
@@ -593,7 +682,25 @@ async function initBookingPage() {
           renderSeatMap();
           await loadUserBookings();
         } catch (error) {
-          alert('Booking failed: ' + error.message);
+          // Check if error is due to unverified email
+          if (error.message && error.message.includes('verify your email')) {
+            alert('Please verify your email address before booking. Check your inbox for the verification link, or click "Resend Verification Email" above.');
+            window.scrollTo(0, 0); // Scroll to top to see banner
+          } else {
+            alert('Booking failed: ' + error.message);
+          }
+        }
+      });
+    }
+
+    // Resend verification email button
+    if (resendVerificationBtn) {
+      resendVerificationBtn.addEventListener('click', async () => {
+        try {
+          const result = await apiCall('/auth/email/resend', { method: 'POST' });
+          alert(result.message || 'Verification email sent! Please check your inbox.');
+        } catch (error) {
+          alert('Failed to resend email: ' + error.message);
         }
       });
     }

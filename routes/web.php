@@ -33,6 +33,11 @@ Route::get('/about', function () {
     return view('about');
 })->name('about');
 
+// Email Verification Route (outside API prefix for cleaner URLs)
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['auth', 'signed'])
+    ->name('verification.verify');
+
 // API Routes (JSON responses for AJAX calls)
 Route::prefix('api')->group(function () {
     
@@ -42,6 +47,9 @@ Route::prefix('api')->group(function () {
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/session', [AuthController::class, 'session']);
+        Route::post('/email/resend', [AuthController::class, 'resendVerification'])
+            ->middleware('auth')
+            ->name('verification.resend');
     });
 
     // Movie routes

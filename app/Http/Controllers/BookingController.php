@@ -79,12 +79,22 @@ class BookingController extends Controller
             ], 401);
         }
 
+        $user = Auth::user();
+
+        // Check if email is verified
+        if (is_null($user->email_verified_at)) {
+            return response()->json([
+                'error' => 'Please verify your email before making a booking',
+                'requires_verification' => true,
+            ], 403);
+        }
+
         try {
             $validated = $request->validate([
                 'items' => 'required|array|min:1',
                 'items.*.movieId' => 'required|string',
                 'items.*.title' => 'required|string',
-                'items.*.date' => 'required|date',
+                'items.*.date' => 'required|date|after_or_equal:today',
                 'items.*.time' => 'required|string',
                 'items.*.cinema' => 'required|string',
                 'items.*.seats' => 'required|array|min:1',
@@ -169,6 +179,20 @@ class BookingController extends Controller
                 'bookingId' => $booking->id,
                 'message' => 'Booking confirmed successfully',
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            
+            // Check if it's a date validation error
+            $errors = $e->errors();
+            if (isset($errors['items.0.date'])) {
+                return response()->json([
+                    'error' => 'Cannot book tickets for past dates. Please select today or a future date.',
+                ], 400);
+            }
+            
+            return response()->json([
+                'error' => 'Invalid booking data: ' . $e->getMessage(),
+            ], 400);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([

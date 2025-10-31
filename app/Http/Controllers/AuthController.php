@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -31,7 +33,10 @@ class AuthController extends Controller
                 'role' => $validated['role'] ?? 'client',
             ]);
 
-            // Log the user in
+            // Fire the Registered event to send verification email
+            event(new Registered($user));
+
+            // Log the user in (they can browse but not book until verified)
             Auth::login($user);
 
             return response()->json([
@@ -41,7 +46,9 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'email_verified' => !is_null($user->email_verified_at),
                 ],
+                'message' => 'Account created! Check your email to verify your account.',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -84,6 +91,7 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'email_verified' => !is_null($user->email_verified_at),
                 ],
             ]);
         } catch (ValidationException $e) {
@@ -125,6 +133,7 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'email_verified' => !is_null($user->email_verified_at),
                 ],
             ]);
         }
@@ -132,5 +141,58 @@ class AuthController extends Controller
         return response()->json([
             'user' => null,
         ]);
+    }
+
+    /**
+     * Resend email verification notification
+     */
+    public function resendVerification(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'error' => 'Unauthenticated',
+            ], 401);
+        }
+
+        if (!is_null($user->email_verified_at)) {
+            return response()->json([
+                'error' => 'Email already verified',
+            ], 400);
+        }
+
+        // Send verification notification
+        $user->notify(new VerifyEmail);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verification email sent!',
+        ]);
+    }
+
+    /**
+     * Mark email as verified
+     */
+    public function verifyEmail(Request $request)
+    {
+        $user = User::findOrFail($request->route('id'));
+
+        if (!hash_equals((string) $request->route('hash'), sha1($user->getEmailForVerification()))) {
+            return redirect('/login?verified=invalid')->with('error', 'Invalid verification link');
+        }
+
+        if (!is_null($user->email_verified_at)) {
+            return redirect('/booking?verified=already')->with('message', 'Email already verified!');
+        }
+
+        // Mark email as verified
+        $user->email_verified_at = now();
+        $user->save();
+
+        event(new \Illuminate\Auth\Events\Verified($user));
+
+        return redirect('/booking?verified=success')->with('message', 'Email verified successfully! You can now book tickets.');
     }
 }

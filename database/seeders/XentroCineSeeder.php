@@ -19,26 +19,29 @@ class XentroCineSeeder extends Seeder
         User::create([
             'id' => 'u_admin001',
             'name' => 'Administrator',
-            'email' => 'admin@xentrocine.local',
-            'password' => 'Admin123!', // Will be hashed automatically
+            'email' => 'admin@admin',
+            'password' => '@dmin_123', // Will be hashed automatically
             'role' => 'admin',
+            'email_verified_at' => now(), // Mark as verified for seeded users
         ]);
 
         // Insert sample client users
         User::create([
             'id' => 'u_client001',
             'name' => 'John Doe',
-            'email' => 'john@example.com',
-            'password' => 'password123',
+            'email' => 'client@client',
+            'password' => 'P@ssword_123',
             'role' => 'client',
+            'email_verified_at' => now(), // Mark as verified for seeded users
         ]);
 
         User::create([
             'id' => 'u_client002',
             'name' => 'Jane Smith',
-            'email' => 'jane@example.com',
-            'password' => 'password123',
+            'email' => 'client2@client',
+            'password' => 'P@ssword_123',
             'role' => 'client',
+            'email_verified_at' => now(), // Mark as verified for seeded users
         ]);
 
         // Insert sample movies

@@ -50,6 +50,41 @@ a{color:inherit; text-decoration:none}
 label{display:flex; flex-direction:column; gap:6px}
 select,input{background:#12141b; border:1px solid #232939; color:var(--text); border-radius:12px; padding:12px 14px; min-height:40px; font-size:1.02rem}
 select:focus-visible,input:focus-visible{outline:3px solid #3b82f6; outline-offset:2px}
+
+/* Date input specific styling for better visibility */
+input[type="date"]{
+  background:#12141b; 
+  color:var(--text);
+  position: relative;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator{
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23e7edf3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E") no-repeat;
+  background-size: 20px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+  filter: brightness(1.2);
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover{
+  filter: brightness(1.5);
+}
+input[type="date"]::-webkit-datetime-edit{
+  color: var(--text);
+}
+input[type="date"]::-webkit-datetime-edit-fields-wrapper{
+  color: var(--text);
+}
+input[type="date"]::-webkit-datetime-edit-text{
+  color: var(--muted);
+}
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field{
+  color: var(--text);
+}
+
 .authform{display:grid; gap:10px; max-width:520px; background:var(--panel); border:1px solid var(--outline); border-radius:12px; padding:14px}
 .form-error{color:#ff9aa2; min-height:20px}
 .form-help{color:var(--muted); font-size:.9rem}
@@ -112,9 +147,33 @@ select:focus-visible,input:focus-visible{outline:3px solid #3b82f6; outline-offs
 .ticks li{margin-bottom:6px}
 .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
 
+/* Booking Layout - 70/30 Split */
+/* Align the sidebar with the content below the sticky header.
+  Remove extra top margin on the grid and set a stickier top that
+  roughly equals header height + container padding. */
+.booking-layout{display:grid; grid-template-columns:7fr 3fr; gap:24px; margin-top:0; align-items:start}
+.booking-main{min-width:0}
+.booking-sidebar{position:sticky; top:76px; align-self:start}
+.booking-sidebar .my-bookings{background:var(--panel); border:1px solid var(--outline); border-radius:14px; padding:16px; max-height:calc(100vh - 120px); overflow-y:auto}
+.booking-list{list-style:none; padding:0; display:grid; gap:10px}
+
+/* When My Bookings is stacked below (no sidebar), keep panel styling */
+.my-bookings{background:var(--panel); border:1px solid var(--outline); border-radius:14px; padding:16px; margin:16px 0}
+
+/* Email Verification Banner */
+.verification-banner{background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border:1px solid #fbbf24; border-radius:14px; padding:18px; margin-bottom:20px; box-shadow:var(--shadow)}
+.verification-banner__content{text-align:center}
+.verification-banner__content strong{display:block; font-size:1.1rem; margin-bottom:8px; color:#fff}
+.verification-banner__content p{margin:8px 0 12px; color:#fffbeb; font-size:.95rem}
+.verification-banner button{background:#fff; color:#d97706; border:none; font-weight:600}
+.verification-banner button:hover{background:#fef3c7}
+
 @media (max-width:1024px){
   .grid-4{grid-template-columns:repeat(3,1fr)}
   .admin-kpis{grid-template-columns:repeat(3,1fr)}
+  .booking-layout{grid-template-columns:1fr; gap:16px}
+  .booking-sidebar{position:static}
+  .booking-sidebar .my-bookings{max-height:none}
 }
 @media (max-width:720px){
   .grid-4{grid-template-columns:repeat(2,1fr)}
