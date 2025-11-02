@@ -13,7 +13,7 @@
 </section>
 
 <section>
-  <h2>Top Rated</h2>
+  <h2>Most Attended</h2>
   <div id="topRated" class="grid grid-4"></div>
 </section>
 

@@ -11,12 +11,23 @@ use Illuminate\Support\Facades\Auth;
 class MovieController extends Controller
 {
     /**
-     * Get all movies with showtimes
+     * Get all movies with showtimes and viewers count
      */
     public function index()
     {
         try {
-            $movies = Movie::with('showtimes')->orderBy('title')->get();
+            // Count viewers (tickets sold) excluding cancelled bookings, and only for past dates (watched)
+            $movies = Movie::with('showtimes')
+                ->withCount([
+                    'bookingItems as viewers_total' => function ($q) {
+                        $q->whereDate('booking_date', '<=', today())
+                          ->whereHas('booking', function ($b) {
+                              $b->where('status', '!=', 'Cancelled');
+                          });
+                    }
+                ])
+                ->orderBy('title')
+                ->get();
 
             $moviesWithShowtimes = $movies->map(function ($movie) {
                 return [
@@ -24,7 +35,8 @@ class MovieController extends Controller
                     'title' => $movie->title,
                     'price' => (float) $movie->price,
                     'poster' => $movie->poster,
-                    'rating' => (float) $movie->rating,
+                    'audience' => $movie->audience,
+                    'viewers_total' => (int) ($movie->viewers_total ?? 0),
                     'showtimes' => $movie->showtimes->map(function ($showtime) {
                         return date('H:i', strtotime($showtime->showtime));
                     })->toArray(),
@@ -47,7 +59,15 @@ class MovieController extends Controller
     public function show($id)
     {
         try {
-            $movie = Movie::with('showtimes')->find($id);
+            $movie = Movie::with('showtimes')
+                ->withCount([
+                    'bookingItems as viewers_total' => function ($q) {
+                        $q->whereDate('booking_date', '<=', today())
+                          ->whereHas('booking', function ($b) {
+                              $b->where('status', '!=', 'Cancelled');
+                          });
+                    }
+                ])->find($id);
 
             if (!$movie) {
                 return response()->json([
@@ -60,7 +80,8 @@ class MovieController extends Controller
                 'title' => $movie->title,
                 'price' => (float) $movie->price,
                 'poster' => $movie->poster,
-                'rating' => (float) $movie->rating,
+                'audience' => $movie->audience,
+                'viewers_total' => (int) ($movie->viewers_total ?? 0),
                 'showtimes' => $movie->showtimes->map(function ($showtime) {
                     return date('H:i', strtotime($showtime->showtime));
                 })->toArray(),
@@ -90,7 +111,7 @@ class MovieController extends Controller
                 'title' => 'required|string',
                 'price' => 'required|numeric|min:0',
                 'poster' => 'nullable|string',
-                'rating' => 'nullable|numeric|min:0|max:5',
+                'audience' => 'required|in:G,PG,R-13,R-16,R-18',
                 'showtimes' => 'required|array|min:1',
                 'showtimes.*' => 'required|string',
             ]);
@@ -99,7 +120,7 @@ class MovieController extends Controller
                 'title' => trim($validated['title']),
                 'price' => $validated['price'],
                 'poster' => $validated['poster'] ?? null,
-                'rating' => $validated['rating'] ?? 0,
+                'audience' => $validated['audience'],
             ]);
 
             // Insert showtimes
@@ -146,7 +167,7 @@ class MovieController extends Controller
                 'title' => 'required|string',
                 'price' => 'required|numeric|min:0',
                 'poster' => 'nullable|string',
-                'rating' => 'nullable|numeric|min:0|max:5',
+                'audience' => 'required|in:G,PG,R-13,R-16,R-18',
                 'showtimes' => 'sometimes|array',
                 'showtimes.*' => 'string',
             ]);
@@ -155,7 +176,7 @@ class MovieController extends Controller
                 'title' => trim($validated['title']),
                 'price' => $validated['price'],
                 'poster' => $validated['poster'] ?? null,
-                'rating' => $validated['rating'] ?? 0,
+                'audience' => $validated['audience'],
             ]);
 
             // Update showtimes if provided

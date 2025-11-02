@@ -15,6 +15,7 @@
       <a class="nav__link @if(Route::currentRouteName() == 'home') nav__link--active @endif" href="{{ route('home') }}">Home</a>
       <a class="nav__link @if(Route::currentRouteName() == 'booking') nav__link--active @endif" href="{{ route('booking') }}">Booking & Reservation</a>
       <a class="nav__link @if(Route::currentRouteName() == 'about') nav__link--active @endif" href="{{ route('about') }}">About</a>
+      <a class="nav__link nav__staff @if(Route::currentRouteName() == 'staff') nav__link--active @endif" href="{{ route('staff') }}" style="display:none">Staff</a>
       <a class="nav__link nav__admin @if(Route::currentRouteName() == 'admin') nav__link--active @endif" href="{{ route('admin') }}" style="display:none">Admin</a>
     </nav>
     <div class="account">

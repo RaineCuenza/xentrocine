@@ -17,9 +17,8 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('email', 100)->unique();
             $table->string('password');
-            $table->enum('role', ['client', 'admin'])->default('client');
+            $table->enum('role', ['client', 'admin', 'staff'])->default('client');
             $table->timestamps();
-            
             $table->index('email');
             $table->index('role');
         });
@@ -30,10 +29,12 @@ return new class extends Migration
             $table->string('title', 200);
             $table->decimal('price', 10, 2);
             $table->string('poster', 500)->nullable();
-            $table->decimal('rating', 3, 1)->default(0);
+            // Audience classification (MTRCB): G, PG, R-13, R-16, R-18
+            $table->enum('audience', ['G', 'PG', 'R-13', 'R-16', 'R-18'])->default('PG');
             $table->timestamps();
             
             $table->index('title');
+            $table->index('audience');
         });
 
         // Showtimes table

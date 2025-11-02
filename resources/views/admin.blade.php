@@ -20,7 +20,16 @@
       @csrf
       <input id="mvTitle" type="text" placeholder="Title" required/>
       <input id="mvPrice" type="number" placeholder="Price (₱)" min="100" required/>
-      <input id="mvRating" type="number" placeholder="Rating (1-5)" min="1" max="5" step="0.1" required/>
+      <label>
+        <span class="muted">Audience</span>
+        <select id="mvAudience" required>
+          <option value="PG" selected>PG</option>
+          <option value="G">G</option>
+          <option value="R-13">R-13</option>
+          <option value="R-16">R-16</option>
+          <option value="R-18">R-18</option>
+        </select>
+      </label>
       <input id="mvPoster" type="text" placeholder="Poster (/images/movie.jpg or URL)" />
       <input id="mvTimes" type="text" placeholder="Showtimes (e.g., 13:00,15:30)" required/>
       <button class="btn btn--primary" type="submit">Add Movie</button>

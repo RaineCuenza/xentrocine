@@ -1,8 +1,3 @@
-/* =========================
-   XentroCine — Movie Booking
-   Laravel Backend Version
-   Pure JS (no frameworks)
-========================= */
 
 // API Configuration - Updated for Laravel
 const API_BASE = '/api';
@@ -38,6 +33,7 @@ const currentUserEl = document.getElementById("currentUser");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const adminNavBtn = document.querySelector(".nav__admin");
+const staffNavBtn = document.querySelector(".nav__staff");
 
 const tabs = [...document.querySelectorAll(".tab")];
 const loginForm = document.getElementById("loginForm");
@@ -54,6 +50,7 @@ const signupErr = document.getElementById("signupErr");
 const movieForm = document.getElementById("movieForm");
 const mvTitle = document.getElementById("mvTitle");
 const mvPrice = document.getElementById("mvPrice");
+const mvAudience = document.getElementById("mvAudience");
 const mvPoster = document.getElementById("mvPoster");
 const mvTimes = document.getElementById("mvTimes");
 const movieErr = document.getElementById("movieErr");
@@ -151,8 +148,15 @@ function updateAccountUI() {
   if (currentUserEl) currentUserEl.textContent = state.currentUser ? state.currentUser.name : 'Guest';
   if (loginBtn) loginBtn.style.display = state.currentUser ? 'none' : '';
   if (logoutBtn) logoutBtn.style.display = state.currentUser ? '' : 'none';
+  
+  // Show admin link for admin only
   if (adminNavBtn) {
     adminNavBtn.style.display = (state.currentUser && state.currentUser.role === 'admin') ? '' : 'none';
+  }
+  
+  // Show staff link for staff and admin
+  if (staffNavBtn) {
+    staffNavBtn.style.display = (state.currentUser && ['admin', 'staff'].includes(state.currentUser.role)) ? '' : 'none';
   }
   
   // Show/hide verification banner
@@ -292,21 +296,27 @@ function renderMovieCards(targetEl, movies) {
     img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_POSTER; };
     const body = document.createElement('div');
     body.className = 'card__body';
-    const title = document.createElement('strong');
-    title.textContent = m.title;
-    const badge = document.createElement('span');
-    badge.className = 'badge';
-    const rating = (typeof m.rating === 'number') ? m.rating : Math.round(((m.price / 100) + 3) * 10) / 10;
-    badge.textContent = `★ ${rating.toFixed(1)} · ₱${m.price}`;
+  // Header: title + audience badge on the right
+  const header = document.createElement('div');
+  header.className = 'card__header';
+  const title = document.createElement('strong');
+  title.className = 'card__title';
+  title.textContent = m.title;
+  const audience = document.createElement('span');
+  const aud = (m.audience || '').toString().toUpperCase();
+  const audClass = aud.replace(/[^A-Z0-9-]/g, '');
+  audience.className = `aud-badge ${audClass ? 'aud-badge--' + audClass : ''}`;
+  if (aud) audience.textContent = aud;
+  header.appendChild(title);
+  header.appendChild(audience);
     const btn = document.createElement('a');
     btn.href = '/booking';
     btn.className = 'btn';
-    btn.textContent = 'Book';
+  btn.textContent = 'Buy Tickets';
     btn.addEventListener('click', () => {
       try { localStorage.setItem('selectedMovieId', m.id); } catch (e) { }
     });
-    body.appendChild(title);
-    body.appendChild(badge);
+  body.appendChild(header);
     body.appendChild(btn);
     card.appendChild(img);
     card.appendChild(body);
@@ -321,11 +331,11 @@ async function initHomePage() {
     // All movies
     renderMovieCards(allMoviesEl, state.movies);
 
-    // Top rated
+    // Most watched (sort by viewers_total desc)
     const rated = [...state.movies].sort((a, b) => {
-      const ra = (typeof a.rating === 'number') ? a.rating : ((a.price / 100) + 3);
-      const rb = (typeof b.rating === 'number') ? b.rating : ((b.price / 100) + 3);
-      return rb - ra;
+      const va = (typeof a.viewers_total === 'number') ? a.viewers_total : 0;
+      const vb = (typeof b.viewers_total === 'number') ? b.viewers_total : 0;
+      return vb - va;
     });
     renderMovieCards(topRatedEl, rated);
 
@@ -651,6 +661,19 @@ async function initBookingPage() {
       if (placeOrderBtnEl) placeOrderBtnEl.disabled = state.cart.length === 0 || !state.currentUser;
     }
 
+    // Toggle GCash form based on selected payment method
+    const payMethodRadios = document.querySelectorAll('input[name="payMethod"]');
+    const gcashFormEl = document.getElementById('gcashForm');
+    if (payMethodRadios.length && gcashFormEl) {
+      const updatePayUI = () => {
+        const selected = document.querySelector('input[name="payMethod"]:checked');
+        const isGCash = selected && selected.value.toLowerCase() === 'gcash';
+        gcashFormEl.style.display = isGCash ? '' : 'none';
+      };
+      payMethodRadios.forEach(r => r.addEventListener('change', updatePayUI));
+      updatePayUI();
+    }
+
     // Place order
     if (placeOrderBtnEl) {
       placeOrderBtnEl.addEventListener('click', async () => {
@@ -670,9 +693,16 @@ async function initBookingPage() {
             seatPrice: it.seatPrice
           }));
 
+          // Determine selected payment method from UI
+          const selectedPay = document.querySelector('input[name="payMethod"]:checked');
+          let paymentMethod = 'digital'; // default to digital
+          if (selectedPay) {
+            paymentMethod = selectedPay.value.toLowerCase() === 'cash' ? 'cash' : 'digital';
+          }
+
           await apiCall('/bookings', {
             method: 'POST',
-            body: JSON.stringify({ items })
+            body: JSON.stringify({ items, paymentMethod })
           });
 
           state.cart = [];
@@ -781,9 +811,9 @@ async function initAdminPage() {
       e.preventDefault();
       if (movieErr) movieErr.textContent = '';
 
-      const title = mvTitle ? mvTitle.value.trim() : '';
-      const price = mvPrice ? Number(mvPrice.value) : 0;
-      const rating = document.getElementById('mvRating') ? Number(document.getElementById('mvRating').value) : 0;
+  const title = mvTitle ? mvTitle.value.trim() : '';
+  const price = mvPrice ? Number(mvPrice.value) : 0;
+  const audience = mvAudience ? mvAudience.value : 'PG';
       const poster = mvPoster ? mvPoster.value.trim() : '';
       const timesStr = mvTimes ? mvTimes.value.trim() : '';
 
@@ -797,17 +827,17 @@ async function initAdminPage() {
       try {
         await apiCall('/movies', {
           method: 'POST',
-          body: JSON.stringify({ title, price, poster, rating, showtimes })
+          body: JSON.stringify({ title, price, poster, audience, showtimes })
         });
 
         alert('Movie added successfully!');
 
         // Clear form
-        if (mvTitle) mvTitle.value = '';
-        if (mvPrice) mvPrice.value = '';
+  if (mvTitle) mvTitle.value = '';
+  if (mvPrice) mvPrice.value = '';
+  if (mvAudience) mvAudience.value = 'PG';
         if (mvPoster) mvPoster.value = '';
-        if (mvTimes) mvTimes.value = '';
-        if (document.getElementById('mvRating')) document.getElementById('mvRating').value = '';
+  if (mvTimes) mvTimes.value = '';
 
         await loadAdminData();
       } catch (error) {
@@ -903,6 +933,504 @@ function renderAdminKPIs() {
   if (kpiCancelled) kpiCancelled.textContent = statusCounts['Cancelled'] || 0;
 }
 
+// ---------- Staff Page ----------
+async function initStaffPage() {
+  // Display staff info
+  const staffNameEl = document.getElementById('staffName');
+  const staffRoleEl = document.getElementById('staffRole');
+  
+  if (state.currentUser) {
+    if (staffNameEl) staffNameEl.textContent = state.currentUser.name;
+    if (staffRoleEl) {
+      staffRoleEl.textContent = state.currentUser.role.toUpperCase();
+      staffRoleEl.style.background = state.currentUser.role === 'admin' ? '#e74c3c' : '#3498db';
+    }
+  }
+
+  // Mode switching
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  const scannerMode = document.getElementById('scannerMode');
+  const walkinMode = document.getElementById('walkinMode');
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (mode === 'scanner') {
+        scannerMode.style.display = 'block';
+        walkinMode.style.display = 'none';
+        initQRScanner();
+      } else {
+        scannerMode.style.display = 'none';
+        walkinMode.style.display = 'block';
+        stopQRScanner();
+        initWalkinBooking();
+      }
+    });
+  });
+
+  // Initialize scanner mode by default
+  initQRScanner();
+}
+
+// QR Scanner functionality
+let html5QrCode = null;
+let isScanning = false;
+
+async function initQRScanner() {
+  const cameraPreview = document.querySelector('.camera-preview');
+  const manualTokenInput = document.getElementById('manualToken');
+  const manualScanBtn = document.getElementById('manualScanBtn');
+
+  // Manual token entry
+  if (manualScanBtn) {
+    manualScanBtn.addEventListener('click', () => {
+      const token = manualTokenInput.value.trim();
+      if (token) {
+        processScan(token);
+        manualTokenInput.value = '';
+      }
+    });
+    
+    // Also allow Enter key
+    manualTokenInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const token = manualTokenInput.value.trim();
+        if (token) {
+          processScan(token);
+          manualTokenInput.value = '';
+        }
+      }
+    });
+  }
+
+  // Initialize html5-qrcode scanner
+  if (cameraPreview && !html5QrCode) {
+    // Dynamically import the library
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      
+      // Create scanner instance with a container div
+      const scannerId = 'qr-reader';
+      let scannerContainer = document.getElementById(scannerId);
+      
+      if (!scannerContainer) {
+        scannerContainer = document.createElement('div');
+        scannerContainer.id = scannerId;
+        scannerContainer.style.width = '100%';
+        cameraPreview.innerHTML = ''; // Clear existing content
+        cameraPreview.appendChild(scannerContainer);
+      }
+      
+      html5QrCode = new Html5Qrcode(scannerId);
+      
+      // Start scanning
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      };
+      
+      const onScanSuccess = (decodedText, decodedResult) => {
+        if (!isScanning) return; // Prevent multiple scans
+        
+        isScanning = false;
+        console.log('QR Code detected:', decodedText);
+        
+        // Process the scanned token
+        processScan(decodedText);
+        
+        // Pause scanning briefly to avoid duplicate scans
+        setTimeout(() => {
+          isScanning = true;
+        }, 2000);
+      };
+      
+      const onScanFailure = (error) => {
+        // Ignore scan failures (normal when no QR in view)
+      };
+      
+      // Try to use back camera (mobile) or any available camera
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+      ).then(() => {
+        isScanning = true;
+        console.log('QR Scanner started successfully');
+      }).catch((err) => {
+        console.warn('Failed to start camera, trying default camera:', err);
+        // Fallback to any available camera
+        html5QrCode.start(
+          { facingMode: "user" },
+          config,
+          onScanSuccess,
+          onScanFailure
+        ).then(() => {
+          isScanning = true;
+          console.log('QR Scanner started with front camera');
+        }).catch((err2) => {
+          console.error('Failed to start QR scanner:', err2);
+          cameraPreview.innerHTML = `
+            <div style="text-align:center;padding:40px;background:#f8d7da;border-radius:8px;color:#721c24">
+              <p style="font-weight:600;margin-bottom:10px">⚠️ Camera Access Required</p>
+              <p style="font-size:0.9rem">Please allow camera access in your browser settings to use QR scanning.</p>
+              <p style="font-size:0.85rem;margin-top:15px;color:#555">You can still use manual token entry below.</p>
+            </div>
+          `;
+        });
+      });
+      
+    } catch (error) {
+      console.error('Failed to load QR scanner library:', error);
+      cameraPreview.innerHTML = `
+        <div style="text-align:center;padding:40px;background:#fff3cd;border-radius:8px">
+          <p style="color:#856404">QR scanner library failed to load. Please use manual token entry.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+async function stopQRScanner() {
+  if (html5QrCode && isScanning) {
+    try {
+      await html5QrCode.stop();
+      isScanning = false;
+      console.log('QR Scanner stopped');
+    } catch (error) {
+      console.error('Error stopping scanner:', error);
+    }
+  }
+}
+
+async function processScan(token, isConfirmCash = false) {
+  const scanResult = document.getElementById('scanResult');
+  
+  try {
+    scanResult.style.display = 'block';
+    scanResult.className = 'scan-result';
+    scanResult.innerHTML = '<p>Processing...</p>';
+
+    const response = await apiCall('/bookings/scan', {
+      method: 'POST',
+      body: JSON.stringify({ token, confirmCash: isConfirmCash })
+    });
+
+    if (response.pending_payment) {
+      // Cash payment pending - show confirmation button
+      displayScanResult('pending', response, token);
+    } else if (response.success) {
+      // Success - checked in
+      displayScanResult('success', response, token);
+    }
+  } catch (error) {
+    displayScanResult('error', { error: error.message || 'Scan failed' }, token);
+  }
+}
+
+// Expose processScan to global scope for inline onclick handlers
+window.processScan = processScan;
+
+function displayScanResult(type, data, token) {
+  const scanResult = document.getElementById('scanResult');
+  scanResult.className = `scan-result ${type}`;
+
+  let icon = '✓';
+  let title = 'Success!';
+  if (type === 'pending') {
+    icon = '💰';
+    title = 'Cash Payment Required';
+  } else if (type === 'error') {
+    icon = '✗';
+    title = 'Error';
+  }
+
+  let html = `
+    <div class="result-header">
+      <span style="font-size:1.5rem">${icon}</span>
+      <span>${title}</span>
+    </div>
+  `;
+
+  if (type === 'error') {
+    html += `<p style="margin-top:10px">${data.error}</p>`;
+  } else {
+    const booking = data.booking;
+    html += `
+      <div class="result-details">
+        <div class="detail-row">
+          <span class="detail-label">Booking ID</span>
+          <span>${booking.id}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Customer</span>
+          <span>${booking.name}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Movie</span>
+          <span>${booking.movie}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Date & Time</span>
+          <span>${booking.date} at ${booking.time}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Cinema</span>
+          <span>${booking.cinema}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Seats</span>
+          <div class="seats-display">
+            ${booking.seats.map(s => `<span class="seat-tag">${s}</span>`).join('')}
+          </div>
+        </div>
+        <div class="detail-row" style="border-top:2px solid rgba(0,0,0,0.2);padding-top:12px;margin-top:8px">
+          <span class="detail-label" style="font-size:1.1rem">Total</span>
+          <span style="font-size:1.2rem;font-weight:700;color:#e74c3c">₱${booking.total.toFixed(2)}</span>
+        </div>
+      </div>
+    `;
+
+    if (type === 'pending') {
+      html += `
+        <div class="result-actions">
+          <button class="btn-primary" onclick="processScan('${token.replace(/'/g, "\\'")}', true)" style="flex:1;font-size:1.1rem;padding:15px">
+            Accept Cash & Check-in
+          </button>
+        </div>
+      `;
+    } else {
+      html += `
+        <p style="margin-top:15px;font-weight:600;color:#27ae60">
+          ✓ Checked in at ${booking.checked_in_at}
+        </p>
+      `;
+    }
+  }
+
+  html += `
+    <div class="result-actions" style="margin-top:20px">
+      <button class="btn-secondary" onclick="location.reload()" style="padding:10px 20px">
+        Scan Next
+      </button>
+    </div>
+  `;
+
+  scanResult.innerHTML = html;
+}
+
+// Walk-in Booking functionality
+let walkinState = {
+  selectedMovie: null,
+  selectedSeats: [],
+  occupiedSeats: []
+};
+
+async function initWalkinBooking() {
+  const movieGrid = document.getElementById('walkinMovieGrid');
+  
+  // Load movies
+  try {
+    const movies = await apiCall('/movies');
+    state.movies = movies;
+
+    movieGrid.innerHTML = movies.map(movie => `
+      <div class="movie-card-small" data-movie-id="${movie.id}">
+        <h4>${movie.title}</h4>
+        <p class="price">₱${parseFloat(movie.price).toFixed(2)}</p>
+        <p style="font-size:0.85rem;color:#7f8c8d">${movie.showtimes?.length || 0} showtimes</p>
+      </div>
+    `).join('');
+
+    // Movie selection handlers
+    document.querySelectorAll('.movie-card-small').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.movie-card-small').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        
+        const movieId = card.dataset.movieId;
+        walkinState.selectedMovie = movies.find(m => m.id === movieId);
+        
+        // Show date/time/cinema step
+        document.getElementById('dateTimeCinemaStep').style.display = 'block';
+        
+        // Populate showtimes
+        const showtimeSelect = document.getElementById('walkinShowtime');
+        showtimeSelect.innerHTML = '<option value="">Select time</option>' +
+          walkinState.selectedMovie.showtimes.map(st => 
+            `<option value="${st}">${st}</option>`
+          ).join('');
+      });
+    });
+
+  } catch (error) {
+    movieGrid.innerHTML = '<p style="text-align:center;color:#e74c3c">Failed to load movies</p>';
+  }
+
+  // Proceed to seat selection
+  const proceedBtn = document.getElementById('proceedToSeatsBtn');
+  if (proceedBtn) {
+    proceedBtn.addEventListener('click', async () => {
+      const date = document.getElementById('walkinDate').value;
+      const time = document.getElementById('walkinShowtime').value;
+      const cinema = document.getElementById('walkinCinema').value;
+
+      if (!date || !time || !cinema) {
+        alert('Please select date, showtime, and cinema');
+        return;
+      }
+
+      // Load occupied seats
+      try {
+        const occupiedResponse = await apiCall(`/seats/occupied?movieId=${walkinState.selectedMovie.id}&date=${date}&showtime=${time}&cinema=${encodeURIComponent(cinema)}`);
+        walkinState.occupiedSeats = occupiedResponse || [];
+      } catch (error) {
+        walkinState.occupiedSeats = [];
+      }
+
+      // Show seat selection step
+      document.getElementById('seatSelectionStep').style.display = 'block';
+      
+      // Display movie info
+      document.getElementById('selectedMovieInfo').innerHTML = `
+        <strong>${walkinState.selectedMovie.title}</strong><br>
+        ${date} at ${time} • ${cinema}
+      `;
+
+      // Generate seat map
+      generateSeatMap();
+      
+      // Scroll to seat selection
+      document.getElementById('seatSelectionStep').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  // Back button
+  const backBtn = document.getElementById('backToMovieBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      document.getElementById('seatSelectionStep').style.display = 'none';
+      walkinState.selectedSeats = [];
+      updateSeatSummary();
+    });
+  }
+
+  // Confirm booking button
+  const confirmBtn = document.getElementById('confirmWalkinBookingBtn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', confirmWalkinBooking);
+  }
+}
+
+function generateSeatMap() {
+  const seatMap = document.getElementById('walkinSeatMap');
+  const rows = 9;
+  const cols = 14;
+  const aisleAfterCol = 7;
+
+  let html = '';
+  for (let row = 1; row <= rows; row++) {
+    for (let col = 1; col <= cols; col++) {
+      if (col === aisleAfterCol + 1) {
+        html += '<div class="seat aisle"></div>';
+      }
+      
+      const seatKey = `R${row}C${col}`;
+      const isOccupied = walkinState.occupiedSeats.includes(seatKey);
+      const classes = isOccupied ? 'seat occupied' : 'seat';
+      
+      html += `<div class="${classes}" data-seat="${seatKey}"></div>`;
+    }
+  }
+  
+  seatMap.innerHTML = html;
+
+  // Add click handlers
+  seatMap.querySelectorAll('.seat:not(.occupied):not(.aisle)').forEach(seat => {
+    seat.addEventListener('click', () => {
+      const seatKey = seat.dataset.seat;
+      
+      if (seat.classList.contains('selected')) {
+        seat.classList.remove('selected');
+        walkinState.selectedSeats = walkinState.selectedSeats.filter(s => s !== seatKey);
+      } else {
+        seat.classList.add('selected');
+        walkinState.selectedSeats.push(seatKey);
+      }
+      
+      updateSeatSummary();
+    });
+  });
+}
+
+function updateSeatSummary() {
+  const countEl = document.getElementById('selectedSeatsCount');
+  const totalEl = document.getElementById('totalAmount');
+  
+  const count = walkinState.selectedSeats.length;
+  const price = walkinState.selectedMovie ? parseFloat(walkinState.selectedMovie.price) : 0;
+  const total = count * price;
+  
+  if (countEl) countEl.textContent = count;
+  if (totalEl) totalEl.textContent = `₱${total.toFixed(2)}`;
+}
+
+async function confirmWalkinBooking() {
+  const customerName = document.getElementById('customerName').value.trim();
+  const customerEmail = document.getElementById('customerEmail').value.trim();
+  const customerPhone = document.getElementById('customerPhone').value.trim();
+  const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+
+  if (!customerName) {
+    alert('Please enter customer name');
+    return;
+  }
+
+  if (walkinState.selectedSeats.length === 0) {
+    alert('Please select at least one seat');
+    return;
+  }
+
+  const date = document.getElementById('walkinDate').value;
+  const time = document.getElementById('walkinShowtime').value;
+  const cinema = document.getElementById('walkinCinema').value;
+
+  const bookingData = {
+    paymentMethod: paymentMethod,
+    items: [{
+      movieId: walkinState.selectedMovie.id,
+      title: walkinState.selectedMovie.title,
+      date: date,
+      time: time,
+      cinema: cinema,
+      seats: walkinState.selectedSeats,
+      seatPrice: parseFloat(walkinState.selectedMovie.price)
+    }]
+  };
+
+  try {
+    // For walk-in, we need to create a booking without authentication
+    // We'll need to modify the API or create a guest user
+    // For now, let's assume staff creates booking on behalf of customer
+    const response = await apiCall('/bookings', {
+      method: 'POST',
+      body: JSON.stringify(bookingData)
+    });
+
+    if (response.success) {
+      alert(`Booking confirmed! Booking ID: ${response.bookingId}\n\nAn e-ticket has been sent to ${customerEmail || 'the customer'}.`);
+      location.reload();
+    }
+  } catch (error) {
+    alert('Booking failed: ' + (error.message || 'Unknown error'));
+  }
+}
+
 // ---------- Global Init ----------
 async function initGlobal() {
   if (yearEl) yearEl.textContent = new Date().getFullYear();
@@ -937,6 +1465,10 @@ async function initGlobal() {
 
   if (page === 'admin') {
     await initAdminPage();
+  }
+
+  if (page === 'staff') {
+    await initStaffPage();
   }
 
   if (page === 'home') {

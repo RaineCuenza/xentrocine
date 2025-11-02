@@ -29,9 +29,17 @@ Route::get('/admin', function () {
     return view('admin');
 })->name('admin');
 
+Route::get('/staff', function () {
+    return view('staff');
+})->name('staff');
+
 Route::get('/about', function () {
     return view('about');
 })->name('about');
+
+Route::get('/qr-test', function () {
+    return view('qr-test');
+})->name('qr-test');
 
 // Email Verification Route (outside API prefix for cleaner URLs)
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
@@ -67,6 +75,7 @@ Route::prefix('api')->group(function () {
         Route::post('/', [BookingController::class, 'store']);
         Route::put('/{id}/cancel', [BookingController::class, 'cancel']);
         Route::delete('/reset', [BookingController::class, 'reset']);
+        Route::post('/scan', [BookingController::class, 'scan']);
     });
 
     // Seat availability routes

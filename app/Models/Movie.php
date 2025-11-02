@@ -31,7 +31,7 @@ class Movie extends Model
         'title',
         'price',
         'poster',
-        'rating',
+        'audience',
     ];
 
     /**
@@ -41,7 +41,6 @@ class Movie extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
-        'rating' => 'decimal:1',
     ];
 
     /**

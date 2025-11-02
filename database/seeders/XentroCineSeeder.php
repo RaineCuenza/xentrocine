@@ -44,13 +44,23 @@ class XentroCineSeeder extends Seeder
             'email_verified_at' => now(), // Mark as verified for seeded users
         ]);
 
+        // Insert staff user
+        User::create([
+            'id' => 'u_staff001',
+            'name' => 'Maria Santos',
+            'email' => 'staff@staff',
+            'password' => 'St@ff_123',
+            'role' => 'staff',
+            'email_verified_at' => now(), // Mark as verified for seeded users
+        ]);
+
         // Insert sample movies
         $movie1 = Movie::create([
             'id' => 'mv100',
             'title' => 'Star Quest',
             'price' => 300.00,
             'poster' => '/images/starquest.jpg',
-            'rating' => 4.5,
+            'audience' => 'PG',
         ]);
 
         $movie2 = Movie::create([
@@ -58,7 +68,7 @@ class XentroCineSeeder extends Seeder
             'title' => 'The Last Laugh',
             'price' => 320.00,
             'poster' => '/images/thelastlaugh.jpg',
-            'rating' => 4.2,
+            'audience' => 'R-13',
         ]);
 
         $movie3 = Movie::create([
@@ -66,7 +76,7 @@ class XentroCineSeeder extends Seeder
             'title' => 'Hidden Tide',
             'price' => 350.00,
             'poster' => '/images/hiddentide.jpg',
-            'rating' => 4.7,
+            'audience' => 'G',
         ]);
 
         // Insert showtimes for Star Quest
