@@ -66,7 +66,7 @@ return new class extends Migration
             $table->index('created_at');
         });
 
-        // Booking items table
+        // Booking items table (pax-based, no per-seat reservations)
         Schema::create('booking_items', function (Blueprint $table) {
             $table->id();
             $table->string('booking_id', 50);
@@ -75,9 +75,8 @@ return new class extends Migration
             $table->date('booking_date');
             $table->time('showtime');
             $table->string('cinema', 50);
-            $table->integer('seat_row');
-            $table->integer('seat_col');
-            $table->string('seat_key', 20);
+            // Number of pax (tickets) for this session
+            $table->unsignedInteger('quantity');
             $table->decimal('price', 10, 2);
             $table->timestamps();
             
@@ -86,8 +85,8 @@ return new class extends Migration
             $table->index('booking_id');
             $table->index('movie_id');
             $table->index(['movie_id', 'booking_date', 'showtime', 'cinema'], 'idx_session');
-            $table->index(['seat_row', 'seat_col']);
-            $table->unique(['movie_id', 'booking_date', 'showtime', 'cinema', 'seat_key'], 'unique_seat_session');
+            // Optional: prevent duplicate session rows in a single booking (one row per movie/date/time/cinema per booking)
+            $table->unique(['booking_id', 'movie_id', 'booking_date', 'showtime', 'cinema'], 'unique_booking_session');
         });
     }
 

@@ -59,7 +59,7 @@ class BookingController extends Controller
                             'date' => $item->booking_date,
                             'time' => date('H:i', strtotime($item->showtime)),
                             'cinema' => $item->cinema,
-                            'seats' => [$item->seat_key],
+                            'quantity' => (int) $item->quantity,
                             'price' => (float) $item->price,
                         ];
                     })->toArray(),
@@ -104,7 +104,7 @@ class BookingController extends Controller
                 'items.*.date' => 'required|date|after_or_equal:today',
                 'items.*.time' => 'required|string',
                 'items.*.cinema' => 'required|string',
-                'items.*.seats' => 'required|array|min:1',
+                'items.*.quantity' => 'required|integer|min:1',
                 'items.*.seatPrice' => 'required|numeric',
             ]);
 
@@ -115,42 +115,19 @@ class BookingController extends Controller
 
             DB::beginTransaction();
 
-            // Check seat availability and prepare items
+            // Prepare pax-based items
             foreach ($validated['items'] as $item) {
-                foreach ($item['seats'] as $seatKey) {
-                    // Check if seat is already occupied
-                    $existing = BookingItem::whereHas('booking', function ($query) {
-                        $query->where('status', '!=', 'Cancelled');
-                    })
-                        ->where('movie_id', $item['movieId'])
-                        ->where('booking_date', $item['date'])
-                        ->where('showtime', $item['time'])
-                        ->where('cinema', $item['cinema'])
-                        ->where('seat_key', $seatKey)
-                        ->exists();
-
-                    if ($existing) {
-                        DB::rollBack();
-                        return response()->json([
-                            'error' => "Seat {$seatKey} is already reserved for this session",
-                        ], 400);
-                    }
-
-                    $seatParts = explode('-', $seatKey);
-                    $bookingItems[] = [
-                        'movieId' => $item['movieId'],
-                        'title' => $item['title'],
-                        'date' => $item['date'],
-                        'time' => $item['time'],
-                        'cinema' => $item['cinema'],
-                        'row' => $seatParts[0],
-                        'col' => $seatParts[1],
-                        'seatKey' => $seatKey,
-                        'price' => $item['seatPrice'],
-                    ];
-
-                    $total += $item['seatPrice'];
-                }
+                $qty = (int) $item['quantity'];
+                $bookingItems[] = [
+                    'movieId' => $item['movieId'],
+                    'title' => $item['title'],
+                    'date' => $item['date'],
+                    'time' => $item['time'],
+                    'cinema' => $item['cinema'],
+                    'quantity' => $qty,
+                    'price' => $item['seatPrice'],
+                ];
+                $total += ($item['seatPrice'] * $qty);
             }
 
             // Create booking
@@ -166,7 +143,7 @@ class BookingController extends Controller
                 'et_qr_token' => 'et_' . Str::random(40),
             ]);
 
-            // Insert booking items
+            // Insert booking items (one row per session with quantity)
             foreach ($bookingItems as $item) {
                 BookingItem::create([
                     'booking_id' => $booking->id,
@@ -175,9 +152,7 @@ class BookingController extends Controller
                     'booking_date' => $item['date'],
                     'showtime' => $item['time'],
                     'cinema' => $item['cinema'],
-                    'seat_row' => $item['row'],
-                    'seat_col' => $item['col'],
-                    'seat_key' => $item['seatKey'],
+                    'quantity' => $item['quantity'],
                     'price' => $item['price'],
                 ]);
             }
@@ -365,10 +340,10 @@ class BookingController extends Controller
                         'id' => $booking->id,
                         'name' => $booking->name,
                         'movie' => $firstItem ? $firstItem->movie_title : '',
-                        'date' => $firstItem ? $firstItem->booking_date->format('M d, Y') : '',
+                        'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
                         'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
                         'cinema' => $firstItem ? $firstItem->cinema : '',
-                        'seats' => $booking->items->pluck('seat_key')->toArray(),
+                        'pax' => (int) $booking->items->sum('quantity'),
                         'total' => (float) $booking->total,
                         'payment_method' => $booking->payment_method,
                         'status' => $booking->status,
@@ -389,10 +364,10 @@ class BookingController extends Controller
                         'id' => $booking->id,
                         'name' => $booking->name,
                         'movie' => $firstItem ? $firstItem->movie_title : '',
-                        'date' => $firstItem ? $firstItem->booking_date->format('M d, Y') : '',
+                        'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
                         'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
                         'cinema' => $firstItem ? $firstItem->cinema : '',
-                        'seats' => $booking->items->pluck('seat_key')->toArray(),
+                        'pax' => (int) $booking->items->sum('quantity'),
                         'total' => (float) $booking->total,
                         'payment_method' => $booking->payment_method,
                         'status' => $booking->status,
@@ -416,10 +391,10 @@ class BookingController extends Controller
                     'id' => $booking->id,
                     'name' => $booking->name,
                     'movie' => $firstItem ? $firstItem->movie_title : '',
-                    'date' => $firstItem ? $firstItem->booking_date->format('M d, Y') : '',
+                    'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
                     'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
                     'cinema' => $firstItem ? $firstItem->cinema : '',
-                    'seats' => $booking->items->pluck('seat_key')->toArray(),
+                    'pax' => (int) $booking->items->sum('quantity'),
                     'total' => (float) $booking->total,
                     'payment_method' => $booking->payment_method,
                     'status' => $booking->status,

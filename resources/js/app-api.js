@@ -68,6 +68,7 @@ const seatMapEl = document.getElementById('seatMap');
 const seatPriceDisplay = document.getElementById('seatPrice');
 const selectedSeatsEl = document.getElementById('selectedSeats');
 const totalPriceEl = document.getElementById('totalPrice');
+const paxInputEl = document.getElementById('paxInput');
 const addToCartBtn = document.getElementById('addToCartBtn');
 const cartListEl = document.getElementById('cartList');
 const goCheckoutBtnEl = document.getElementById('goCheckoutBtn');
@@ -119,6 +120,44 @@ async function apiCall(endpoint, options = {}) {
     throw error;
   }
 }
+
+// ---------- Mobile Navigation ----------
+function setupMobileNav() {
+  const header = document.querySelector('.site-header');
+  const toggle = document.getElementById('mobileMenuToggle');
+  const nav = document.querySelector('.nav');
+  const account = document.querySelector('.account');
+
+  if (!header || !toggle) return;
+
+  const closeMenu = () => {
+    header.classList.remove('menu-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  };
+
+  toggle.addEventListener('click', () => {
+    const open = !header.classList.contains('menu-open');
+    header.classList.toggle('menu-open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // Close when clicking a nav link or account button
+  [nav, account].forEach(parent => {
+    if (!parent) return;
+    parent.addEventListener('click', (e) => {
+      const target = e.target.closest('a,button');
+      if (target) closeMenu();
+    });
+  });
+
+  // Close on resize to desktop
+  const mq = window.matchMedia('(min-width: 721px)');
+  mq.addEventListener('change', (ev) => {
+    if (ev.matches) closeMenu();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setupMobileNav);
 
 // ---------- Utils ----------
 const peso = n => (Math.round(n * 100) / 100).toLocaleString("en-PH", { minimumFractionDigits: 0 });
@@ -425,18 +464,13 @@ async function initBookingPage() {
         });
       }
       if (seatPriceDisplay) seatPriceDisplay.textContent = mv.price;
-      selected.clear(); // Clear seat selection when movie changes
-      renderSeatMap();
+      updatePaxSummary();
     }
 
-    // Seat selection
-    const selected = new Set();
-
-    // Clear selection and re-render when session parameters change
+    // Session parameter change handlers
     if (movieSelect) movieSelect.addEventListener('change', refreshShowtimes);
     if (showtimeSelect) showtimeSelect.addEventListener('change', () => {
-      selected.clear();
-      renderSeatMap();
+      updatePaxSummary();
     });
     if (dateSelect) {
       dateSelect.addEventListener('change', () => {
@@ -452,97 +486,24 @@ async function initBookingPage() {
           return;
         }
         
-        selected.clear();
-        renderSeatMap();
+        updatePaxSummary();
       });
     }
     if (cinemaSelect) cinemaSelect.addEventListener('change', () => {
-      selected.clear();
-      renderSeatMap();
+      updatePaxSummary();
     });
 
-    async function renderSeatMap() {
-      if (!seatMapEl) return;
-      seatMapEl.innerHTML = '';
-
-      const rows = state.seatRows, cols = state.seatCols, aisle = state.aisleAfter;
-      const mvId = movieSelect ? movieSelect.value : state.movies[0].id;
-      const date = dateSelect ? dateSelect.value : new Date().toISOString().slice(0, 10);
-      const time = showtimeSelect ? showtimeSelect.value : (state.movies[0].showtimes[0]);
-      const cinema = cinemaSelect ? cinemaSelect.value : 'Cinema 1';
-
-      // Fetch occupied seats from API
-      let occupied = new Set();
-      try {
-        const data = await apiCall(`/seats/occupied?movieId=${mvId}&date=${date}&time=${time}&cinema=${encodeURIComponent(cinema)}`);
-        occupied = new Set(data.occupiedSeats);
-      } catch (error) {
-        console.error('Failed to fetch occupied seats:', error);
-      }
-
-      // Cart holds
-      const heldSeats = new Set();
-      (state.cart || []).forEach(it => {
-        const cid = sessionId(it.movieId, it.date, it.time, it.cinema);
-        const sid = sessionId(mvId, date, time, cinema);
-        if (cid === sid) {
-          it.seats.forEach(s => heldSeats.add(s));
-        }
-      });
-
-      const totalSeats = rows * cols;
-      const reservedCount = new Set([...occupied, ...heldSeats]).size;
-
-      for (let r = 1; r <= rows; r++) {
-        for (let c = 1; c <= cols; c++) {
-          const key = seatKey(r, c);
-          const seat = document.createElement('button');
-          seat.className = 'seat';
-          if (c === aisle + 1) seat.classList.add('seat--aisle');
-          seat.dataset.seat = key;
-          seat.setAttribute('type', 'button');
-
-          if (occupied.has(key) || heldSeats.has(key)) {
-            seat.classList.add('seat--occupied');
-            seat.disabled = true;
-          }
-
-          if (selected.has(key)) seat.classList.add('seat--selected');
-
-          seat.addEventListener('click', () => {
-            if (seat.classList.contains('seat--selected')) {
-              selected.delete(key);
-              seat.classList.remove('seat--selected');
-            } else {
-              selected.add(key);
-              seat.classList.add('seat--selected');
-            }
-            updateSelectionUI();
-          });
-
-          seatMapEl.appendChild(seat);
-        }
-      }
-
-      updateSelectionUI();
-
-      function updateSelectionUI() {
-        const mv = state.movies.find(m => m.id === mvId);
-        const seatPrice = mv ? mv.price : 0;
-        if (selectedSeatsEl) selectedSeatsEl.textContent = selected.size;
-        if (totalPriceEl) totalPriceEl.textContent = seatPrice * selected.size;
-        if (addToCartBtn) addToCartBtn.disabled = selected.size === 0 || !state.currentUser;
-        if (authHint) authHint.style.display = state.currentUser ? 'none' : '';
-
-        const selectedCount = selected.size;
-        let availableCount = totalSeats - reservedCount - selectedCount;
-        if (availableCount < 0) availableCount = 0;
-
-        if (legendAvailableEl) legendAvailableEl.textContent = availableCount;
-        if (legendSelectedEl) legendSelectedEl.textContent = selectedCount;
-        if (legendReservedEl) legendReservedEl.textContent = reservedCount;
-      }
+    // Pax input update
+    function updatePaxSummary() {
+      const mv = state.movies.find(m => m.id === (movieSelect ? movieSelect.value : state.movies[0].id));
+      const price = mv ? Number(mv.price) : 0;
+      const qty = paxInputEl ? Math.max(1, parseInt(paxInputEl.value || '1')) : 1;
+      if (selectedSeatsEl) selectedSeatsEl.textContent = qty;
+      if (totalPriceEl) totalPriceEl.textContent = String(price * qty);
+      if (addToCartBtn) addToCartBtn.disabled = !state.currentUser || qty < 1;
+      if (authHint) authHint.style.display = state.currentUser ? 'none' : '';
     }
+    if (paxInputEl) paxInputEl.addEventListener('input', updatePaxSummary);
 
     // Add to cart
     if (addToCartBtn) {
@@ -552,8 +513,8 @@ async function initBookingPage() {
         const time = showtimeSelect.value;
         const cinema = cinemaSelect.value;
 
-        const seats = Array.from(seatMapEl.querySelectorAll('.seat--selected')).map(s => s.dataset.seat);
-        if (seats.length === 0) return alert('Select seats first');
+        const qty = paxInputEl ? Math.max(1, parseInt(paxInputEl.value || '1')) : 1;
+        if (!qty || qty < 1) return alert('Enter pax count');
 
         // Find existing cart item for this session
         let cartItem = state.cart.find(
@@ -561,14 +522,8 @@ async function initBookingPage() {
         );
 
         if (cartItem) {
-          // Only add seats that are not already present
-          const newSeats = seats.filter(seat => !cartItem.seats.includes(seat));
-          if (newSeats.length === 0) {
-            alert('Selected seats are already in cart');
-            return;
-          }
-          cartItem.seats = cartItem.seats.concat(newSeats);
-          cartItem.total = mv.price * cartItem.seats.length;
+          cartItem.quantity += qty;
+          cartItem.total = mv.price * cartItem.quantity;
         } else {
           const itemId = `ci_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
           const item = {
@@ -578,14 +533,14 @@ async function initBookingPage() {
             date,
             time,
             cinema,
-            seats,
+            quantity: qty,
             seatPrice: mv.price,
-            total: mv.price * seats.length
+            total: mv.price * qty
           };
           state.cart.push(item);
         }
         renderCart();
-        renderSeatMap();
+        updatePaxSummary();
       });
     }
 
@@ -604,7 +559,7 @@ async function initBookingPage() {
         const li = cartItemTpl.content.cloneNode(true);
         li.querySelector('.cart__movie').textContent = it.title;
         li.querySelector('.cart__meta').textContent = `${it.date} @ ${it.time}`;
-        li.querySelector('.cart__seats').textContent = it.seats.join(', ');
+        li.querySelector('.cart__seats').textContent = `Pax: ${it.quantity}`;
         li.querySelector('.cart__price span').textContent = it.total;
 
         const node = li.querySelector('li');
@@ -612,7 +567,7 @@ async function initBookingPage() {
           const idx = state.cart.findIndex(x => x.id === it.id);
           if (idx !== -1) state.cart.splice(idx, 1);
           renderCart();
-          renderSeatMap();
+          updatePaxSummary();
         });
 
         cartListEl.appendChild(node);
@@ -626,7 +581,7 @@ async function initBookingPage() {
       clearCartBtnEl.addEventListener('click', () => {
         state.cart = [];
         renderCart();
-        renderSeatMap();
+        updatePaxSummary();
       });
     }
 
@@ -651,7 +606,7 @@ async function initBookingPage() {
         const li = summaryItemTpl.content.cloneNode(true);
         li.querySelector('.sum__movie').textContent = it.title;
         li.querySelector('.sum__meta').textContent = `${it.date} @ ${it.time} — ${it.cinema}`;
-        li.querySelector('.sum__seats').textContent = `Seats: ${it.seats.join(', ')}`;
+        li.querySelector('.sum__seats').textContent = `Pax: ${it.quantity}`;
         li.querySelector('.sum__price span').textContent = it.total;
         checkoutItemsEl.appendChild(li);
         total += it.total;
@@ -689,7 +644,7 @@ async function initBookingPage() {
             date: it.date,
             time: it.time,
             cinema: it.cinema,
-            seats: it.seats,
+            quantity: it.quantity,
             seatPrice: it.seatPrice
           }));
 
@@ -709,7 +664,7 @@ async function initBookingPage() {
           renderCart();
           if (paymentSection) paymentSection.style.display = 'none';
           alert('Booking confirmed — thank you!');
-          renderSeatMap();
+          updatePaxSummary();
           await loadUserBookings();
         } catch (error) {
           // Check if error is due to unverified email
@@ -738,6 +693,7 @@ async function initBookingPage() {
     // Initial render
     refreshShowtimes();
     renderCart();
+    updatePaxSummary();
   } catch (error) {
     console.error('Failed to initialize booking page:', error);
   }
@@ -766,7 +722,7 @@ async function loadUserBookings() {
         <strong>${firstItem.movie_title || firstItem.title}</strong>
         <small>${new Date(b.created_at).toLocaleString()}</small>
         <div class="cart__meta">${firstItem.date || firstItem.booking_date} @ ${firstItem.time || firstItem.showtime} — ${firstItem.cinema}</div>
-        <div class="cart__seats">Seats: ${b.items.map(it => it.seat_key || it.seats[0]).join(', ')}</div>
+        <div class="cart__seats">Pax: ${b.items.reduce((sum, it) => sum + (it.quantity || 0), 0)}</div>
         <div class="cart__meta">Status: ${b.status || 'Paid'}</div>
       </div>
       <div><div class="cart__price">₱${peso(b.total)}</div></div>`;
@@ -1184,10 +1140,8 @@ function displayScanResult(type, data, token) {
           <span>${booking.cinema}</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Seats</span>
-          <div class="seats-display">
-            ${booking.seats.map(s => `<span class="seat-tag">${s}</span>`).join('')}
-          </div>
+          <span class="detail-label">Pax</span>
+          <span>${booking.pax}</span>
         </div>
         <div class="detail-row" style="border-top:2px solid rgba(0,0,0,0.2);padding-top:12px;margin-top:8px">
           <span class="detail-label" style="font-size:1.1rem">Total</span>
@@ -1227,8 +1181,7 @@ function displayScanResult(type, data, token) {
 // Walk-in Booking functionality
 let walkinState = {
   selectedMovie: null,
-  selectedSeats: [],
-  occupiedSeats: []
+  selectedQuantity: 1
 };
 
 async function initWalkinBooking() {
@@ -1272,7 +1225,7 @@ async function initWalkinBooking() {
     movieGrid.innerHTML = '<p style="text-align:center;color:#e74c3c">Failed to load movies</p>';
   }
 
-  // Proceed to seat selection
+  // Proceed to pax selection
   const proceedBtn = document.getElementById('proceedToSeatsBtn');
   if (proceedBtn) {
     proceedBtn.addEventListener('click', async () => {
@@ -1285,14 +1238,6 @@ async function initWalkinBooking() {
         return;
       }
 
-      // Load occupied seats
-      try {
-        const occupiedResponse = await apiCall(`/seats/occupied?movieId=${walkinState.selectedMovie.id}&date=${date}&showtime=${time}&cinema=${encodeURIComponent(cinema)}`);
-        walkinState.occupiedSeats = occupiedResponse || [];
-      } catch (error) {
-        walkinState.occupiedSeats = [];
-      }
-
       // Show seat selection step
       document.getElementById('seatSelectionStep').style.display = 'block';
       
@@ -1301,10 +1246,17 @@ async function initWalkinBooking() {
         <strong>${walkinState.selectedMovie.title}</strong><br>
         ${date} at ${time} • ${cinema}
       `;
+      updateWalkinSummary();
 
-      // Generate seat map
-      generateSeatMap();
-      
+      const paxEl = document.getElementById('walkinPax');
+      if (paxEl) {
+        paxEl.addEventListener('input', () => {
+          const val = Math.max(1, parseInt(paxEl.value || '1'));
+          walkinState.selectedQuantity = val;
+          updateWalkinSummary();
+        });
+      }
+
       // Scroll to seat selection
       document.getElementById('seatSelectionStep').scrollIntoView({ behavior: 'smooth' });
     });
@@ -1315,8 +1267,8 @@ async function initWalkinBooking() {
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       document.getElementById('seatSelectionStep').style.display = 'none';
-      walkinState.selectedSeats = [];
-      updateSeatSummary();
+      walkinState.selectedQuantity = 1;
+      updateWalkinSummary();
     });
   }
 
@@ -1327,52 +1279,11 @@ async function initWalkinBooking() {
   }
 }
 
-function generateSeatMap() {
-  const seatMap = document.getElementById('walkinSeatMap');
-  const rows = 9;
-  const cols = 14;
-  const aisleAfterCol = 7;
-
-  let html = '';
-  for (let row = 1; row <= rows; row++) {
-    for (let col = 1; col <= cols; col++) {
-      if (col === aisleAfterCol + 1) {
-        html += '<div class="seat aisle"></div>';
-      }
-      
-      const seatKey = `R${row}C${col}`;
-      const isOccupied = walkinState.occupiedSeats.includes(seatKey);
-      const classes = isOccupied ? 'seat occupied' : 'seat';
-      
-      html += `<div class="${classes}" data-seat="${seatKey}"></div>`;
-    }
-  }
-  
-  seatMap.innerHTML = html;
-
-  // Add click handlers
-  seatMap.querySelectorAll('.seat:not(.occupied):not(.aisle)').forEach(seat => {
-    seat.addEventListener('click', () => {
-      const seatKey = seat.dataset.seat;
-      
-      if (seat.classList.contains('selected')) {
-        seat.classList.remove('selected');
-        walkinState.selectedSeats = walkinState.selectedSeats.filter(s => s !== seatKey);
-      } else {
-        seat.classList.add('selected');
-        walkinState.selectedSeats.push(seatKey);
-      }
-      
-      updateSeatSummary();
-    });
-  });
-}
-
-function updateSeatSummary() {
+function updateWalkinSummary() {
   const countEl = document.getElementById('selectedSeatsCount');
   const totalEl = document.getElementById('totalAmount');
   
-  const count = walkinState.selectedSeats.length;
+  const count = walkinState.selectedQuantity || 1;
   const price = walkinState.selectedMovie ? parseFloat(walkinState.selectedMovie.price) : 0;
   const total = count * price;
   
@@ -1391,10 +1302,8 @@ async function confirmWalkinBooking() {
     return;
   }
 
-  if (walkinState.selectedSeats.length === 0) {
-    alert('Please select at least one seat');
-    return;
-  }
+  const paxEl = document.getElementById('walkinPax');
+  const qty = Math.max(1, parseInt(paxEl ? paxEl.value : '1'));
 
   const date = document.getElementById('walkinDate').value;
   const time = document.getElementById('walkinShowtime').value;
@@ -1408,7 +1317,7 @@ async function confirmWalkinBooking() {
       date: date,
       time: time,
       cinema: cinema,
-      seats: walkinState.selectedSeats,
+      quantity: qty,
       seatPrice: parseFloat(walkinState.selectedMovie.price)
     }]
   };

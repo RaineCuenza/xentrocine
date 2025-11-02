@@ -64,7 +64,7 @@
         <div class="walkin-container">
             <div class="walkin-header">
                 <h2>Create Walk-in Booking</h2>
-                <p>Select movie, showtime, and seats for customer</p>
+                <p>Select movie, showtime, and pax for customer</p>
             </div>
 
             <!-- Movie Selection -->
@@ -98,30 +98,23 @@
                         </select>
                     </div>
                 </div>
-                <button id="proceedToSeatsBtn" class="btn-primary">Continue to Seat Selection</button>
+                <button id="proceedToSeatsBtn" class="btn-primary">Continue</button>
             </div>
 
-            <!-- Seat Selection -->
+            <!-- Pax Selection -->
             <div class="booking-step" id="seatSelectionStep" style="display: none;">
-                <h3>3. Select Seats</h3>
+                <h3>3. Pax</h3>
                 <div class="seat-selection-info">
                     <div id="selectedMovieInfo"></div>
                     <div class="selected-seats-summary">
-                        <span>Selected: <strong id="selectedSeatsCount">0</strong> seat(s)</span>
+                        <span>Pax: <strong id="selectedSeatsCount">1</strong></span>
                         <span>Total: <strong id="totalAmount">₱0.00</strong></span>
                     </div>
                 </div>
-                
-                <div class="seat-map-container">
-                    <div class="screen">SCREEN</div>
-                    <div id="walkinSeatMap" class="seat-map">
-                        <!-- Seat map will be generated here -->
-                    </div>
-                    <div class="seat-legend">
-                        <span><span class="legend-box available"></span> Available</span>
-                        <span><span class="legend-box occupied"></span> Occupied</span>
-                        <span><span class="legend-box selected"></span> Selected</span>
-                    </div>
+
+                <div class="form-group" style="max-width:200px;">
+                    <label>Number of Pax</label>
+                    <input type="number" id="walkinPax" min="1" value="1">
                 </div>
 
                 <!-- Customer Info -->
@@ -704,5 +697,35 @@
 .btn-primary:hover { background: #c0392b; }
 .btn-secondary { background: #111827; border: none; color: #fff; }
 .btn-secondary:hover { background: #0b1220; }
+
+/* --- Mobile-first responsive tweaks for staff portal --- */
+@media (max-width: 1024px) {
+    .mode-selector { flex-wrap: wrap; }
+    .mode-btn { flex: 1 1 48%; }
+}
+
+@media (max-width: 720px) {
+    .portal-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .mode-selector { gap: 10px; }
+    .mode-btn { flex: 1 1 100%; padding: 14px; }
+    .scanner-container, .walkin-container { padding: 18px; }
+    .camera-preview { max-width: none; min-height: 40vh; }
+    .manual-input { flex-direction: column; max-width: none; }
+    .result-actions { flex-direction: column; }
+    .seat-map { grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; }
+    .selection-row, .form-row { grid-template-columns: 1fr; }
+    .payment-options { flex-direction: column; }
+    .booking-actions { flex-direction: column; }
+    .btn-primary, .btn-secondary { width: 100%; }
+}
+
+@media (max-width: 480px) {
+    .scanner-header h2, .walkin-header h2 { font-size: 1.25rem; }
+    .portal-header h1 { font-size: 1.4rem; }
+    .seat-map { max-width: 100%; }
+    /* Make seats size with viewport to fit 14 columns on small screens */
+    .seat-map .seat { border-width: 1.5px; }
+    .seat { aspect-ratio: 1 / 1; }
+}
 </style>
 @endsection

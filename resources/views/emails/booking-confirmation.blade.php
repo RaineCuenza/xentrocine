@@ -191,13 +191,12 @@
                     <span class="detail-value">{{ $firstItem->cinema }}</span>
                 </div>
                 
+                @php
+                    $pax = (int) $booking->items->sum('quantity');
+                @endphp
                 <div class="detail-row">
-                    <span class="detail-label">Seats</span>
-                    <span class="detail-value">
-                        @foreach($booking->items as $item)
-                            <span class="seats-list">{{ $item->seat_key }}</span>
-                        @endforeach
-                    </span>
+                    <span class="detail-label">Pax</span>
+                    <span class="detail-value">{{ $pax }}</span>
                 </div>
                 
                 <div class="detail-row">

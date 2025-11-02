@@ -30,7 +30,7 @@ class BookingConfirmation extends Mailable
     {
         $firstItem = $this->booking->items->first();
         $movieTitle = $firstItem ? $firstItem->movie_title : 'Movie';
-        $date = $firstItem ? $firstItem->booking_date->format('M d') : '';
+    $date = $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d') : '';
         $time = $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '';
         
         return new Envelope(

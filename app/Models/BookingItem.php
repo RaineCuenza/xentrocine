@@ -18,9 +18,7 @@ class BookingItem extends Model
         'booking_date',
         'showtime',
         'cinema',
-        'seat_row',
-        'seat_col',
-        'seat_key',
+        'quantity',
         'price',
     ];
 

@@ -16,7 +16,7 @@
   <!-- Booking Form (single column) -->
   <div class="booking-main">
     <h1 class="mb-0">Book Now!</h1>
-    <p class="muted">Select a movie, schedule, and seats. Payment options: <strong>Card</strong> (hold for 48h) or <strong>GCash</strong> (instant confirm).</p>
+  <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or <strong>GCash</strong>.</p>
     
     <div class="filters">
       <label>Movie
@@ -36,18 +36,14 @@
       </label>
     </div>
 
-    <div class="legend">
-      <span class="legend__item"><span class="seat"></span> Available (<span id="legendAvailable">0</span>)</span>
-      <span class="legend__item"><span class="seat seat--selected"></span> Selected (<span id="legendSelected">0</span>)</span>
-      <span class="legend__item"><span class="seat seat--occupied"></span> Reserved (<span id="legendReserved">0</span>)</span>
+    <div class="pax-input">
+      <label for="paxInput">Number of Pax</label>
+      <input id="paxInput" type="number" min="1" max="20" value="1" style="width: 120px;">
     </div>
 
-    <div class="screen">SCREEN</div>
-    <div id="seatMap" class="seats" role="grid" aria-label="Seat map"></div>
-
     <aside class="summary">
-      <div class="summary__row"><span>Selected seats:</span><strong id="selectedSeats">0</strong></div>
-      <div class="summary__row"><span>Price per seat:</span><strong>₱<span id="seatPrice">0</span></strong></div>
+      <div class="summary__row"><span>Pax:</span><strong id="selectedSeats">1</strong></div>
+      <div class="summary__row"><span>Price per pax:</span><strong>₱<span id="seatPrice">0</span></strong></div>
       <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">0</span></strong></div>
       <button id="addToCartBtn" class="btn" disabled>Add to cart</button>
       <div id="authHint" class="form-help" style="display:none">Log in as Client to proceed.</div>

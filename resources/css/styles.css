@@ -3,6 +3,7 @@
   --brand:#7c5cff; --accent:#22c55e; --danger:#f43f5e; --outline:#2a2f3a;
   --seat:#2b2f36; --seat-selected:#7c5cff; --seat-occupied:#f59e0b; /* amber for reserved */
   --radius:14px; --gap:14px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  --seat-size: 42px; /* base seat tile size */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -18,11 +19,15 @@ a{color:inherit; text-decoration:none}
   position:sticky; top:0; z-index:10; background:#0f1115e6; backdrop-filter:blur(6px)
 }
 .brand{font-weight:800}
+.mobile-toggle{display:none; appearance:none; border:1px solid var(--outline); background:#151821; color:var(--text); border-radius:10px; padding:8px; margin-left:auto}
 .nav{display:flex; gap:10px}
+.nav{display:flex; gap:10px; flex-wrap:wrap}
 .nav__link{padding:10px 14px; border:1px solid var(--outline); border-radius:12px}
 .nav__link--active,.btn--primary{background:var(--brand); border-color:transparent}
 .account{display:flex; align-items:center; gap:10px}
 .account__who{color:#cfd7e6; font-size:.95rem}
+.hide-mobile{display:inline}
+.show-mobile{display:none}
 
 /* Footer/Layout */
 .container{max-width:1100px; margin:0 auto; padding:20px}
@@ -109,7 +114,9 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 
 /* Seat map */
 .screen{text-align:center; margin:18px auto; padding:12px; width:min(700px,95%); background:linear-gradient(180deg,#222836,#1a1f2b); border:1px solid var(--outline); border-radius:12px; letter-spacing:3px; color:#b4c0d0; font-size:1.05rem}
-.seats{display:grid; gap:12px; justify-content:center; grid-template-columns:repeat(14, min(42px, 7vw)); margin:0 auto 18px; max-width:calc(14 * 48px)}
+.seat-toolbar{display:flex; gap:8px; justify-content:flex-end; margin:8px 0 6px}
+.seat-toolbar .btn{min-height:36px; padding:8px 12px}
+.seats{display:grid; gap:12px; justify-content:flex-start; grid-template-columns:repeat(14, var(--seat-size)); margin:0 0 18px; width:max-content; overflow-x:auto; -webkit-overflow-scrolling:touch}
 .seat{width:100%; aspect-ratio:1/1; border-radius:8px; background:var(--seat); border:1px solid #20242d}
 .seat:hover{outline:2px solid #3a4152; cursor:pointer}
 .seat--selected{background:var(--seat-selected)}
@@ -133,7 +140,8 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 
 /* Larger click targets on desktop */
 @media (min-width:1024px){
-  .seats{grid-template-columns:repeat(14, 52px); gap:12px; max-width:calc(14 * 56px)}
+  :root{ --seat-size: 52px; }
+  .seats{gap:12px}
   .btn{min-height:44px; font-size:1.06rem}
   select,input{min-height:44px; font-size:1.04rem}
   .nav__link{padding:12px 16px}
@@ -185,16 +193,35 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   .booking-layout{grid-template-columns:1fr; gap:16px}
   .booking-sidebar{position:static}
   .booking-sidebar .my-bookings{max-height:none}
+  .legend{flex-wrap:wrap}
 }
 @media (max-width:720px){
+  .hide-mobile{display:none}
+  .show-mobile{display:inline}
+  /* Mobile header */
+  .mobile-toggle{display:inline-flex}
+  .site-header{flex-wrap:wrap; gap:10px}
+  .nav,.account{display:none; width:100%}
+  .site-header.menu-open .nav,
+  .site-header.menu-open .account{display:flex}
+  .site-header.menu-open .nav{flex-wrap:wrap; gap:8px}
+  .site-header.menu-open .account{justify-content:space-between}
+  .account__who{font-size:.9rem}
   .grid-4{grid-template-columns:repeat(2,1fr)}
   .filters{grid-template-columns:1fr 1fr}
   .admin-grid{grid-template-columns:1fr}
   .admin-kpis{grid-template-columns:repeat(2,1fr)}
+  .site-header{padding:12px 14px}
+  .container{padding:16px}
+  .row{grid-template-columns:1fr}
+  .row .btn{width:100%}
 }
 @media (max-width:480px){
   .grid-4{grid-template-columns:1fr}
   .filters{grid-template-columns:1fr}
   .row{grid-template-columns:1fr}
   .admin-kpis{grid-template-columns:1fr}
+  .container{padding:12px}
+  :root{ --seat-size: 36px; }
+  .summary{max-width:none}
 }
