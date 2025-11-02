@@ -62,7 +62,7 @@ class Movie extends Model
      */
     public function showtimes()
     {
-        return $this->hasMany(Showtime::class, 'movie_id', 'id');
+        return $this->hasMany(Showtime::class, 'movie_id', 'id')->orderBy('showtime');
     }
 
     /**

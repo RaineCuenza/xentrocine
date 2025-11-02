@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "build:watch": "vite build --watch",
+        "hot:off": "powershell -Command \"if (Test-Path .\\public\\hot) { Remove-Item .\\public\\hot }\"",
+        "dev:cf": "npm run hot:off && npm run build:watch"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

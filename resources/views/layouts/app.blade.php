@@ -14,27 +14,71 @@
 <body data-page="@yield('page', 'home')">
     <header class="site-header">
         <a class="brand" href="{{ route('home') }}">XentroCine</a>
+        
+        <!-- Mobile: Account icon (left of hamburger) -->
+        @auth
+            <button type="button" id="mobileAccountToggle" class="mobile-account-icon" aria-label="Account menu" aria-expanded="false">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </button>
+            <div id="mobileAccountMenu" class="mobile-account-menu" style="display:none">
+                <div class="mobile-account-menu__header">{{ auth()->user()->name }}</div>
+                <form action="{{ route('auth.logout') }}" method="POST" style="margin:0">
+                    @csrf
+                    <button type="submit" class="mobile-account-menu__logout">Log out</button>
+                </form>
+            </div>
+        @else
+            <a href="{{ route('login') }}" class="mobile-account-icon" aria-label="Log in">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </a>
+        @endauth
+        
         <button id="mobileMenuToggle" class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
         </button>
+        
         <nav class="nav">
             <a class="nav__link @if (Route::currentRouteName() == 'home') nav__link--active @endif"
                 href="{{ route('home') }}">Home</a>
-            <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
-                href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+            @guest
+                <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
+                    href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+            @else
+                @if (auth()->user()->role === 'client')
+                    <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
+                        href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+                @endif
+            @endguest
             <a class="nav__link @if (Route::currentRouteName() == 'about') nav__link--active @endif"
                 href="{{ route('about') }}">About</a>
-            <a class="nav__link nav__staff @if (Route::currentRouteName() == 'staff') nav__link--active @endif"
-                href="{{ route('staff') }}" style="display:none">Staff</a>
-            <a class="nav__link nav__admin @if (Route::currentRouteName() == 'admin') nav__link--active @endif"
-                href="{{ route('admin') }}" style="display:none">Admin</a>
+            @auth
+                @if (auth()->user()->role === 'staff')
+                    <a class="nav__link @if (Route::currentRouteName() == 'staff') nav__link--active @endif" href="{{ route('staff') }}">Cashier</a>
+                @endif
+                @if (auth()->user()->role === 'admin')
+                    <a class="nav__link @if (Route::currentRouteName() == 'admin') nav__link--active @endif" href="{{ route('admin') }}">Manage</a>
+                @endif
+            @endauth
         </nav>
         <div class="account">
-            <span id="currentUser" class="account__who">Guest</span>
-            <a id="loginBtn" class="btn btn--primary" href="{{ route('login') }}">Log in / Sign up</a>
-            <button id="logoutBtn" class="btn" style="display:none">Log out</button>
+            @auth
+                <span class="account__who">{{ auth()->user()->name }}</span>
+                <form action="{{ route('auth.logout') }}" method="POST" style="margin:0">
+                    @csrf
+                    <button type="submit" class="btn">Log out</button>
+                </form>
+            @else
+                <span class="account__who">Guest</span>
+                <a class="btn btn--primary" href="{{ route('login') }}">Log in / Sign up</a>
+            @endauth
         </div>
     </header>
 
@@ -47,6 +91,56 @@
     </footer>
 
     @stack('scripts')
+    
+    <script>
+        // Mobile menu toggle
+        const mobileToggle = document.getElementById('mobileMenuToggle');
+        const siteHeader = document.querySelector('.site-header');
+        const nav = document.querySelector('.nav');
+        
+        if(mobileToggle && nav){
+            mobileToggle.addEventListener('click', () => {
+                const isOpen = siteHeader.classList.toggle('menu-open');
+                mobileToggle.setAttribute('aria-expanded', isOpen);
+                // Prevent body scroll when menu is open
+                document.body.style.overflow = isOpen ? 'hidden' : '';
+            });
+            
+            // Close nav when clicking backdrop or close button
+            nav.addEventListener('click', (e) => {
+                // Close if clicking on nav itself (backdrop via ::after) or the X (::before)
+                if(e.target === nav || e.target.classList.contains('nav')){
+                    siteHeader.classList.remove('menu-open');
+                    mobileToggle.setAttribute('aria-expanded', 'false');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+        
+        // Mobile account menu toggle
+        const accountToggle = document.getElementById('mobileAccountToggle');
+        const accountMenu = document.getElementById('mobileAccountMenu');
+        if(accountToggle && accountMenu){
+            accountToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = accountMenu.style.display === 'block';
+                accountMenu.style.display = isOpen ? 'none' : 'block';
+                accountToggle.setAttribute('aria-expanded', !isOpen);
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if(!accountToggle.contains(e.target) && !accountMenu.contains(e.target)){
+                    accountMenu.style.display = 'none';
+                    accountToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+        
+        // Set current year
+        const yearEl = document.getElementById('year');
+        if(yearEl) yearEl.textContent = new Date().getFullYear();
+    </script>
 </body>
 
 </html>

@@ -2,37 +2,13 @@
 
 @section('page', 'staff')
 
-@section('title', 'Staff Portal - XentroCine')
+@section('title', 'Cashier Dashboard - XentroCine')
 
 @section('content')
 <div class="staff-portal">
-    <div class="portal-header">
-        <h1>Staff Portal</h1>
-        <div class="staff-info">
-            <span id="staffName"></span>
-            <span class="role-badge" id="staffRole"></span>
-        </div>
-    </div>
-
-    <!-- Mode Selector -->
-    <div class="mode-selector">
-        <button class="mode-btn active" data-mode="scanner">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M3 10h18M10 3v18"/>
-            </svg>
-            QR Scanner
-        </button>
-        <button class="mode-btn" data-mode="walkin">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="8.5" cy="7" r="4"/>
-                <path d="M20 8v6M23 11h-6"/>
-            </svg>
-            Walk-in Booking
-        </button>
-    </div>
-
+    <!-- Cashier workspace: responsive two-column grid (Scanner + Walk-in) -->
+    <div class="cashier-grid">
+    
     <!-- QR Scanner Mode -->
     <div class="staff-mode" id="scannerMode">
         <div class="scanner-container">
@@ -44,11 +20,12 @@
             <!-- Camera Preview -->
             <div class="camera-preview">
                 <!-- QR scanner will be injected here by html5-qrcode -->
+                <div id="qr-reader"></div>
             </div>
 
             <!-- Manual Token Input (fallback) -->
             <div class="manual-input">
-                <input type="text" id="manualToken" placeholder="Enter token manually (e.g., et_XXXXXXXX...)">
+                <input type="text" id="manualToken" placeholder="Enter token manually (e.g., et_XXXXXXXX...)" autofocus>
                 <button id="manualScanBtn" class="btn-primary">Verify</button>
             </div>
 
@@ -60,7 +37,7 @@
     </div>
 
     <!-- Walk-in Booking Mode -->
-    <div class="staff-mode" id="walkinMode" style="display: none;">
+    <div class="staff-mode" id="walkinMode">
         <div class="walkin-container">
             <div class="walkin-header">
                 <h2>Create Walk-in Booking</h2>
@@ -158,106 +135,79 @@
             </div>
         </div>
     </div>
+    
+    </div><!-- end cashier-grid -->
 </div>
 
 <style>
 .staff-portal {
-    max-width: 1200px;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    min-height: calc(100vh - 120px); /* Full viewport minus header/footer */
+}
+
+.cashier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Equal columns */
+    gap: 0;
+    min-height: calc(100vh - 120px);
+}
+
+.staff-mode {
+    padding: 32px;
+    min-height: 100%;
+}
+
+#scannerMode {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-right: 2px solid #dee2e6;
+}
+
+#walkinMode {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.scanner-container,
+.walkin-container {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    max-width: 700px;
     margin: 0 auto;
-    padding: 20px;
 }
 
-.portal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
-
-.portal-header h1 {
-    font-size: 2rem;
-    color: #2c3e50;
-}
-
-.staff-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.role-badge {
-    background: #3498db;
-    color: white;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.mode-selector {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 30px;
-}
-
-.mode-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 15px 20px;
-    border: 2px solid #ddd;
-    background: white;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 1rem;
-    font-weight: 600;
-}
-
-.mode-btn:hover {
-    border-color: #e74c3c;
-    background: #fff5f5;
-}
-
-.mode-btn.active {
-    border-color: #e74c3c;
-    background: #e74c3c;
-    color: white;
-}
-
-/* Scanner Mode */
-.scanner-container {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.scanner-header {
+.scanner-header,
+.walkin-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 32px;
 }
 
-.scanner-header h2 {
-    color: #2c3e50;
-    margin-bottom: 10px;
+.scanner-header h2,
+.walkin-header h2 {
+    color: #1a202c;
+    font-size: 1.75rem;
+    margin-bottom: 8px;
+    font-weight: 700;
 }
 
-.scanner-header p {
-    color: #7f8c8d;
+.scanner-header p,
+.walkin-header p {
+    color: #718096;
+    font-size: 0.95rem;
 }
 
 .camera-preview {
     position: relative;
     width: 100%;
-    max-width: 500px;
-    margin: 0 auto 30px;
-    border-radius: 12px;
+    max-width: 600px;
+    margin: 0 auto 24px;
+    border-radius: 16px;
     overflow: hidden;
     background: #000;
-    min-height: 300px;
+    min-height: 400px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
 }
 
 .camera-preview video {
@@ -282,21 +232,42 @@
 
 .manual-input {
     display: flex;
-    gap: 10px;
-    max-width: 500px;
-    margin: 0 auto 30px;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto 24px;
 }
 
 .manual-input input {
     flex: 1;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
+    padding: 14px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
     font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.manual-input input:focus {
+    outline: none;
+    border-color: #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
 }
 
 .manual-input button {
-    padding: 12px 30px;
+    padding: 14px 32px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.manual-input button:hover {
+    background: #c0392b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
 .scan-result {
@@ -368,22 +339,27 @@
 /* Walk-in Mode */
 .walkin-container {
     background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    max-width: 700px;
+    margin: 0 auto;
 }
 
 .walkin-header {
-    margin-bottom: 30px;
+    margin-bottom: 32px;
 }
 
 .walkin-header h2 {
-    color: #2c3e50;
-    margin-bottom: 10px;
+    color: #1a202c;
+    font-size: 1.75rem;
+    margin-bottom: 8px;
+    font-weight: 700;
 }
 
 .walkin-header p {
-    color: #7f8c8d;
+    color: #718096;
+    font-size: 0.95rem;
 }
 
 .booking-step {
@@ -397,8 +373,10 @@
 }
 
 .booking-step h3 {
-    color: #2c3e50;
+    color: #1a202c;
     margin-bottom: 20px;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .movie-select-grid {
@@ -408,32 +386,38 @@
 }
 
 .movie-card-small {
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
     text-align: center;
+    background: white;
 }
 
 .movie-card-small:hover {
     border-color: #e74c3c;
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.15);
 }
 
 .movie-card-small.selected {
     border-color: #e74c3c;
     background: #fff5f5;
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.2);
 }
 
 .movie-card-small h4 {
-    margin: 10px 0 5px;
-    color: #2c3e50;
+    margin: 10px 0 8px;
+    color: #1a202c;
+    font-size: 1.1rem;
+    font-weight: 600;
 }
 
 .movie-card-small .price {
     color: #e74c3c;
     font-weight: 700;
+    font-size: 1.15rem;
 }
 
 .selection-row {
@@ -700,17 +684,51 @@
 
 /* --- Mobile-first responsive tweaks for staff portal --- */
 @media (max-width: 1024px) {
-    .mode-selector { flex-wrap: wrap; }
-    .mode-btn { flex: 1 1 48%; }
+    .cashier-grid {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+    
+    #scannerMode {
+        border-right: none;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .staff-mode {
+        padding: 24px;
+    }
 }
 
 @media (max-width: 720px) {
-    .portal-header { flex-direction: column; gap: 8px; align-items: flex-start; }
-    .mode-selector { gap: 10px; }
-    .mode-btn { flex: 1 1 100%; padding: 14px; }
-    .scanner-container, .walkin-container { padding: 18px; }
-    .camera-preview { max-width: none; min-height: 40vh; }
-    .manual-input { flex-direction: column; max-width: none; }
+    .staff-mode {
+        padding: 20px 16px;
+    }
+    
+    .scanner-container, .walkin-container {
+        padding: 24px 20px;
+        border-radius: 12px;
+    }
+    
+    .scanner-header h2, .walkin-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .camera-preview {
+        max-width: none;
+        min-height: 300px;
+        border-radius: 12px;
+    }
+    
+    .manual-input {
+        flex-direction: column;
+        max-width: none;
+    }
+    
+    .manual-input button {
+        width: 100%;
+        padding: 14px;
+    }
+    
     .result-actions { flex-direction: column; }
     .seat-map { grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 6px; }
     .selection-row, .form-row { grid-template-columns: 1fr; }
@@ -721,7 +739,6 @@
 
 @media (max-width: 480px) {
     .scanner-header h2, .walkin-header h2 { font-size: 1.25rem; }
-    .portal-header h1 { font-size: 1.4rem; }
     .seat-map { max-width: 100%; }
     /* Make seats size with viewport to fit 14 columns on small screens */
     .seat-map .seat { border-width: 1.5px; }
@@ -729,3 +746,25 @@
 }
 </style>
 @endsection
+@push('scripts')
+<script>
+// Unified cashier dashboard - both panels visible, hash used for smooth scrolling only
+document.addEventListener('DOMContentLoaded', function () {
+    // Smooth scroll to section if hash present
+    if (location.hash) {
+        const target = document.querySelector(location.hash);
+        if (target) {
+            setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+        }
+    }
+    
+    // Handle hash navigation
+    window.addEventListener('hashchange', () => {
+        const target = document.querySelector(location.hash);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+</script>
+@endpush

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Mail\BookingConfirmation;
+use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,12 @@ use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
 {
+    protected $cartService;
+
+    public function __construct(CartService $cartService)
+    {
+        $this->cartService = $cartService;
+    }
     /**
      * Get user's bookings or all bookings (admin)
      */
@@ -80,33 +87,52 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         if (!Auth::check()) {
-            return response()->json([
-                'error' => 'Authentication required',
-            ], 401);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Authentication required',
+                ], 401);
+            }
+            return redirect()->route('login');
         }
 
         $user = Auth::user();
 
         // Check if email is verified
         if (is_null($user->email_verified_at)) {
-            return response()->json([
-                'error' => 'Please verify your email before making a booking',
-                'requires_verification' => true,
-            ], 403);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Please verify your email before making a booking',
+                    'requires_verification' => true,
+                ], 403);
+            }
+            return back()->withErrors(['booking' => 'Please verify your email before booking.']);
         }
 
         try {
-            $validated = $request->validate([
-                'paymentMethod' => 'nullable|in:cash,digital',
-                'items' => 'required|array|min:1',
-                'items.*.movieId' => 'required|string',
-                'items.*.title' => 'required|string',
-                'items.*.date' => 'required|date|after_or_equal:today',
-                'items.*.time' => 'required|string',
-                'items.*.cinema' => 'required|string',
-                'items.*.quantity' => 'required|integer|min:1',
-                'items.*.seatPrice' => 'required|numeric',
-            ]);
+            // For web requests without explicit items, use session cart
+            $usingSessionCart = !$request->expectsJson() && !$request->has('items');
+            if ($usingSessionCart) {
+                $validated = $request->validate([
+                    'paymentMethod' => 'nullable|in:cash,digital',
+                ]);
+                $cartItems = $this->cartService->getItems();
+                if (count($cartItems) === 0) {
+                    return back()->withErrors(['booking' => 'Cart is empty']);
+                }
+            } else {
+                $validated = $request->validate([
+                    'paymentMethod' => 'nullable|in:cash,digital',
+                    'items' => 'required|array|min:1',
+                    'items.*.movieId' => 'required|string',
+                    'items.*.title' => 'required|string',
+                    'items.*.date' => 'required|date|after_or_equal:today',
+                    'items.*.time' => 'required|string',
+                    'items.*.cinema' => 'required|string',
+                    'items.*.quantity' => 'required|integer|min:1',
+                    'items.*.seatPrice' => 'required|numeric',
+                ]);
+                $cartItems = $validated['items'];
+            }
 
             $user = Auth::user();
             $paymentMethod = $validated['paymentMethod'] ?? 'digital';
@@ -116,7 +142,7 @@ class BookingController extends Controller
             DB::beginTransaction();
 
             // Prepare pax-based items
-            foreach ($validated['items'] as $item) {
+            foreach ($cartItems as $item) {
                 $qty = (int) $item['quantity'];
                 $bookingItems[] = [
                     'movieId' => $item['movieId'],
@@ -159,6 +185,9 @@ class BookingController extends Controller
 
             DB::commit();
 
+            // Clear the cart after successful booking
+            $this->cartService->clear();
+
             // Send e-ticket email with QR code
             try {
                 Mail::to($booking->email)->send(new BookingConfirmation($booking->load('items')));
@@ -170,30 +199,42 @@ class BookingController extends Controller
                 ]);
             }
 
-            return response()->json([
-                'success' => true,
-                'bookingId' => $booking->id,
-                'message' => 'Booking confirmed successfully',
-            ]);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'bookingId' => $booking->id,
+                    'message' => 'Booking confirmed successfully',
+                ]);
+            }
+            return redirect()->route('booking')->with('message', 'Booking confirmed!');
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
             
             // Check if it's a date validation error
             $errors = $e->errors();
             if (isset($errors['items.0.date'])) {
-                return response()->json([
-                    'error' => 'Cannot book tickets for past dates. Please select today or a future date.',
-                ], 400);
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Cannot book tickets for past dates. Please select today or a future date.',
+                    ], 400);
+                }
+                return back()->withErrors(['booking' => 'Cannot book tickets for past dates.'])->withInput();
             }
             
-            return response()->json([
-                'error' => 'Invalid booking data: ' . $e->getMessage(),
-            ], 400);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Invalid booking data: ' . $e->getMessage(),
+                ], 400);
+            }
+            return back()->withErrors(['booking' => 'Invalid booking data'])->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'error' => 'Failed to create booking',
-            ], 500);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Failed to create booking',
+                ], 500);
+            }
+            return back()->withErrors(['booking' => 'Failed to create booking']);
         }
     }
 
@@ -294,10 +335,12 @@ class BookingController extends Controller
             $validated = $request->validate([
                 'token' => 'required|string',
                 'confirmCash' => 'nullable|boolean',
+                'confirmCheckIn' => 'nullable|boolean',
             ]);
 
             $token = $validated['token'];
             $confirmCash = $validated['confirmCash'] ?? false;
+            $confirmCheckIn = $validated['confirmCheckIn'] ?? false;
 
             // Find booking by entry token
             $booking = Booking::where('et_qr_token', $token)->first();
@@ -323,16 +366,68 @@ class BookingController extends Controller
                 ], 409);
             }
 
-            // Handle based on payment status
-            if ($booking->status === 'Paid') {
-                // Digital payment or cash already accepted - instant check-in
-                $booking->update([
-                    'entry_scanned_at' => now(),
-                    'checked_in_by' => $user->id,
+            // If no confirmation flags were sent, return info-only response
+            if (!$confirmCheckIn && !$confirmCash) {
+                $firstItem = $booking->items->first();
+
+                // Paid bookings require staff verification
+                if ($booking->status === 'Paid') {
+                    return response()->json([
+                        'awaiting_checkin' => true,
+                        'message' => 'Paid booking. Tap Verify Entry to check-in.',
+                        'booking' => [
+                            'id' => $booking->id,
+                            'name' => $booking->name,
+                            'movie' => $firstItem ? $firstItem->movie_title : '',
+                            'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
+                            'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
+                            'cinema' => $firstItem ? $firstItem->cinema : '',
+                            'pax' => (int) $booking->items->sum('quantity'),
+                            'total' => (float) $booking->total,
+                            'payment_method' => $booking->payment_method,
+                            'status' => $booking->status,
+                        ],
+                    ]);
+                }
+
+                // Pending (cash) bookings need cash confirmation first
+                $firstItem = $booking->items->first();
+                return response()->json([
+                    'pending_payment' => true,
+                    'message' => 'Cash payment required. Please accept payment and confirm.',
+                    'booking' => [
+                        'id' => $booking->id,
+                        'name' => $booking->name,
+                        'movie' => $firstItem ? $firstItem->movie_title : '',
+                        'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
+                        'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
+                        'cinema' => $firstItem ? $firstItem->cinema : '',
+                        'pax' => (int) $booking->items->sum('quantity'),
+                        'total' => (float) $booking->total,
+                        'payment_method' => $booking->payment_method,
+                        'status' => $booking->status,
+                    ],
                 ]);
+            }
+
+            // If we reach here, a confirmation was requested
+            if ($booking->status === 'Pending') {
+                if (!$confirmCash) {
+                    return response()->json([
+                        'error' => 'Cash confirmation required to check-in.',
+                    ], 400);
+                }
+                // Accept cash first
+                $booking->status = 'Paid';
+            }
+
+            // Perform check-in
+            if ($confirmCheckIn || $booking->status === 'Paid') {
+                $booking->entry_scanned_at = now();
+                $booking->checked_in_by = $user->id;
+                $booking->save();
 
                 $firstItem = $booking->items->first();
-                
                 return response()->json([
                     'success' => true,
                     'message' => 'Check-in successful!',
@@ -352,55 +447,10 @@ class BookingController extends Controller
                 ]);
             }
 
-            // Status is Pending (cash payment)
-            if (!$confirmCash) {
-                // First scan - return pending status and prompt for cash
-                $firstItem = $booking->items->first();
-                
-                return response()->json([
-                    'pending_payment' => true,
-                    'message' => 'Cash payment required. Please accept payment and confirm.',
-                    'booking' => [
-                        'id' => $booking->id,
-                        'name' => $booking->name,
-                        'movie' => $firstItem ? $firstItem->movie_title : '',
-                        'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
-                        'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
-                        'cinema' => $firstItem ? $firstItem->cinema : '',
-                        'pax' => (int) $booking->items->sum('quantity'),
-                        'total' => (float) $booking->total,
-                        'payment_method' => $booking->payment_method,
-                        'status' => $booking->status,
-                    ],
-                ]);
-            }
-
-            // Confirm cash payment and check-in
-            $booking->update([
-                'status' => 'Paid',
-                'entry_scanned_at' => now(),
-                'checked_in_by' => $user->id,
-            ]);
-
-            $firstItem = $booking->items->first();
-
+            // Fallback (shouldn't normally hit)
             return response()->json([
-                'success' => true,
-                'message' => 'Cash payment accepted and check-in successful!',
-                'booking' => [
-                    'id' => $booking->id,
-                    'name' => $booking->name,
-                    'movie' => $firstItem ? $firstItem->movie_title : '',
-                    'date' => $firstItem ? \Illuminate\Support\Carbon::parse($firstItem->booking_date)->format('M d, Y') : '',
-                    'time' => $firstItem ? date('g:i A', strtotime($firstItem->showtime)) : '',
-                    'cinema' => $firstItem ? $firstItem->cinema : '',
-                    'pax' => (int) $booking->items->sum('quantity'),
-                    'total' => (float) $booking->total,
-                    'payment_method' => $booking->payment_method,
-                    'status' => $booking->status,
-                    'checked_in_at' => $booking->entry_scanned_at->format('Y-m-d H:i:s'),
-                ],
-            ]);
+                'error' => 'Unable to process request.',
+            ], 400);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

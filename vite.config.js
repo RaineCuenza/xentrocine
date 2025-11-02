@@ -2,15 +2,18 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 
 export default defineConfig({
-    // comment this out if php artisan serve(local), pero if via LAN use this
     server: {
-        host: true, // Allow LAN access
-        port: 5173, // Default Vite port
+        host: true,  // Allow external access
+        port: 5173,
         strictPort: true,
-        origin: 'http://192.168.0.197:5173',
-        cors: true, // Ensure CORS headers are sent for module scripts when loaded from Laravel at 8000
+        cors: {
+            origin: '*',  // Allow all origins (for Cloudflare tunnel)
+            credentials: true,
+        },
+        hmr: {
+            host: 'localhost',  // HMR should connect to localhost
+        },
     },
-    // end comment
     
     plugins: [
         laravel({

@@ -1,5 +1,5 @@
 
-// API Configuration - Updated for Laravel
+// API Configuration
 const API_BASE = '/api';
 
 // CSRF Token Helper
@@ -7,46 +7,38 @@ function getCsrfToken() {
   return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 }
 
-// State management
+// Minimal state (only for current user session info)
 const state = {
-  currentUser: null,
-  movies: [],
-  seatRows: 9,
-  seatCols: 14,
-  aisleAfter: 7,
-  cart: [],
-  bookings: []
+  currentUser: null
 };
 
-// DOM Elements
+// DOM Elements - Global (kept minimal; nav/account handled by Blade)
 const yearEl = document.getElementById("year");
-const topRatedEl = document.getElementById('topRated');
-const mostPopularEl = document.getElementById('mostPopular');
-const allMoviesEl = document.getElementById('allMovies');
+
+// Auth page handled via Blade forms now
+
+// DOM Elements - Booking Page
 const movieSelect = document.getElementById("movieSelect");
 const dateSelect = document.getElementById("dateSelect");
 const showtimeSelect = document.getElementById("showtimeSelect");
 const cinemaSelect = document.getElementById("cinemaSelect");
-const authHint = document.getElementById("authHint");
+const paxInputEl = document.getElementById('paxInput');
+const seatPriceDisplay = document.getElementById('seatPrice');
+const selectedSeatsEl = document.getElementById('selectedSeats');
+const totalPriceEl = document.getElementById('totalPrice');
+const addToCartBtn = document.getElementById('addToCartBtn');
+const authHint = document.getElementById('authHint');
+const cartListEl = document.getElementById('cartList');
+const goCheckoutBtnEl = document.getElementById('goCheckoutBtn');
+const clearCartBtnEl = document.getElementById('clearCartBtn');
+const verificationBanner = document.getElementById('verificationBanner');
+const resendVerificationBtn = document.getElementById('resendVerificationBtn');
+const paymentSection = document.getElementById('paymentSection');
+const checkoutItemsEl = document.getElementById('checkoutItems');
+const checkoutTotalEl = document.getElementById('checkoutTotal');
+const placeOrderBtnEl = document.getElementById('placeOrderBtn');
 
-const currentUserEl = document.getElementById("currentUser");
-const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const adminNavBtn = document.querySelector(".nav__admin");
-const staffNavBtn = document.querySelector(".nav__staff");
-
-const tabs = [...document.querySelectorAll(".tab")];
-const loginForm = document.getElementById("loginForm");
-const loginEmail = document.getElementById("loginEmail");
-const loginPassword = document.getElementById("loginPassword");
-const loginErr = document.getElementById("loginErr");
-
-const signupForm = document.getElementById("signupForm");
-const suName = document.getElementById("suName");
-const suEmail = document.getElementById("suEmail");
-const suPassword = document.getElementById("suPassword");
-const signupErr = document.getElementById("signupErr");
-
+// DOM Elements - Admin Page
 const movieForm = document.getElementById("movieForm");
 const mvTitle = document.getElementById("mvTitle");
 const mvPrice = document.getElementById("mvPrice");
@@ -56,37 +48,11 @@ const mvTimes = document.getElementById("mvTimes");
 const movieErr = document.getElementById("movieErr");
 const adminMovieList = document.getElementById("adminMovieList");
 const adminBookingList = document.getElementById("adminBookingList");
-
 const kpiMovies = document.getElementById('kpiMovies');
 const kpiBookings = document.getElementById('kpiBookings');
 const kpiPaid = document.getElementById('kpiPaid');
 const kpiPending = document.getElementById('kpiPending');
 const kpiCancelled = document.getElementById('kpiCancelled');
-
-const bookingListEl = document.getElementById('bookingList');
-const seatMapEl = document.getElementById('seatMap');
-const seatPriceDisplay = document.getElementById('seatPrice');
-const selectedSeatsEl = document.getElementById('selectedSeats');
-const totalPriceEl = document.getElementById('totalPrice');
-const paxInputEl = document.getElementById('paxInput');
-const addToCartBtn = document.getElementById('addToCartBtn');
-const cartListEl = document.getElementById('cartList');
-const goCheckoutBtnEl = document.getElementById('goCheckoutBtn');
-const clearCartBtnEl = document.getElementById('clearCartBtn');
-const paymentSection = document.getElementById('paymentSection');
-const checkoutItemsEl = document.getElementById('checkoutItems');
-const checkoutTotalEl = document.getElementById('checkoutTotal');
-const placeOrderBtnEl = document.getElementById('placeOrderBtn');
-
-const verificationBanner = document.getElementById('verificationBanner');
-const resendVerificationBtn = document.getElementById('resendVerificationBtn');
-
-const legendAvailableEl = document.getElementById('legendAvailable');
-const legendSelectedEl = document.getElementById('legendSelected');
-const legendReservedEl = document.getElementById('legendReserved');
-
-const cartItemTpl = document.getElementById("cartItemTpl");
-const summaryItemTpl = document.getElementById("summaryItemTpl");
 
 // ---------- API Helper Functions ----------
 async function apiCall(endpoint, options = {}) {
@@ -99,1291 +65,506 @@ async function apiCall(endpoint, options = {}) {
 
     // Add CSRF token for non-GET requests
     if (options.method && options.method !== 'GET') {
-      headers['X-CSRF-TOKEN'] = getCsrfToken();
+      const token = getCsrfToken();
+      if (token) {
+        headers['X-CSRF-TOKEN'] = token;
+      }
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(API_BASE + endpoint, {
       ...options,
-      credentials: 'same-origin',
-      headers
+      headers,
+      credentials: 'same-origin'
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || 'API request failed');
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    return data;
+    return await response.json();
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('API call failed:', error);
     throw error;
   }
 }
 
 // ---------- Mobile Navigation ----------
 function setupMobileNav() {
-  const header = document.querySelector('.site-header');
-  const toggle = document.getElementById('mobileMenuToggle');
+  const toggle = document.querySelector('.mobile-toggle');
   const nav = document.querySelector('.nav');
   const account = document.querySelector('.account');
-
-  if (!header || !toggle) return;
-
-  const closeMenu = () => {
-    header.classList.remove('menu-open');
-    toggle.setAttribute('aria-expanded', 'false');
-  };
-
-  toggle.addEventListener('click', () => {
-    const open = !header.classList.contains('menu-open');
-    header.classList.toggle('menu-open');
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-
-  // Close when clicking a nav link or account button
-  [nav, account].forEach(parent => {
-    if (!parent) return;
-    parent.addEventListener('click', (e) => {
-      const target = e.target.closest('a,button');
-      if (target) closeMenu();
-    });
-  });
-
-  // Close on resize to desktop
-  const mq = window.matchMedia('(min-width: 721px)');
-  mq.addEventListener('change', (ev) => {
-    if (ev.matches) closeMenu();
-  });
-}
-
-document.addEventListener('DOMContentLoaded', setupMobileNav);
-
-// ---------- Utils ----------
-const peso = n => (Math.round(n * 100) / 100).toLocaleString("en-PH", { minimumFractionDigits: 0 });
-
-function sessionId(movieId, date, time, cinema) {
-  return `${movieId}|${date}|${time}|${cinema}`;
-}
-
-function seatKey(r, c) {
-  return `${r}-${c}`;
-}
-
-// ---------- Session Management ----------
-async function checkSession() {
-  try {
-    const data = await apiCall('/auth/session');
-    state.currentUser = data.user;
-    updateAccountUI();
-  } catch (error) {
-    console.error('Session check failed:', error);
-    state.currentUser = null;
-    updateAccountUI();
-  }
-}
-
-function updateAccountUI() {
-  if (currentUserEl) currentUserEl.textContent = state.currentUser ? state.currentUser.name : 'Guest';
-  if (loginBtn) loginBtn.style.display = state.currentUser ? 'none' : '';
-  if (logoutBtn) logoutBtn.style.display = state.currentUser ? '' : 'none';
   
-  // Show admin link for admin only
-  if (adminNavBtn) {
-    adminNavBtn.style.display = (state.currentUser && state.currentUser.role === 'admin') ? '' : 'none';
-  }
-  
-  // Show staff link for staff and admin
-  if (staffNavBtn) {
-    staffNavBtn.style.display = (state.currentUser && ['admin', 'staff'].includes(state.currentUser.role)) ? '' : 'none';
-  }
-  
-  // Show/hide verification banner
-  if (verificationBanner && state.currentUser) {
-    const needsVerification = !state.currentUser.email_verified;
-    verificationBanner.style.display = needsVerification ? '' : 'none';
-  } else if (verificationBanner) {
-    verificationBanner.style.display = 'none';
-  }
-}
-
-// ---------- Auth Page ----------
-function initAuthPage() {
-  // Tab switching
-  if (tabs && tabs.length) {
-    tabs.forEach(t => t.addEventListener('click', (e) => {
-      const tab = e.currentTarget;
-      const target = tab.dataset.tab;
-      tabs.forEach(x => x.classList.remove('tab--active'));
-      tab.classList.add('tab--active');
-      document.querySelectorAll('.tabcontent').forEach(tc => tc.classList.remove('tabcontent--active'));
-      const el = document.getElementById(target);
-      if (el) el.classList.add('tabcontent--active');
-    }));
-  }
-
-  // Signup
-  if (signupForm) {
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (signupErr) signupErr.textContent = '';
-
-      const name = suName ? suName.value.trim() : '';
-      const email = suEmail ? suEmail.value.trim() : '';
-      const password = suPassword ? suPassword.value : '';
-
-      try {
-        const data = await apiCall('/auth/signup', {
-          method: 'POST',
-          body: JSON.stringify({ name, email, password, role: 'client' })
-        });
-
-        state.currentUser = data.user;
-        updateAccountUI();
-
-        if (data.user.role === 'admin') window.location.href = '/admin';
-        else window.location.href = '/booking';
-      } catch (error) {
-        if (signupErr) signupErr.textContent = error.message;
-      }
-    });
-  }
-
-  // Login
-  if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (loginErr) loginErr.textContent = '';
-
-      const email = loginEmail ? loginEmail.value.trim() : '';
-      const password = loginPassword ? loginPassword.value : '';
-
-      try {
-        const data = await apiCall('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password })
-        });
-
-        state.currentUser = data.user;
-        updateAccountUI();
-
-        if (data.user.role === 'admin') window.location.href = '/admin';
-        else window.location.href = '/booking';
-      } catch (error) {
-        if (loginErr) loginErr.textContent = error.message;
-      }
-    });
-  }
-
-  // Logout
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await apiCall('/auth/logout', { method: 'POST' });
-        state.currentUser = null;
-        updateAccountUI();
-        window.location.href = '/';
-      } catch (error) {
-        console.error('Logout failed:', error);
-      }
-    });
-  }
-
-  // Resend verification email
-  if (resendVerificationBtn) {
-    resendVerificationBtn.addEventListener('click', async () => {
-      resendVerificationBtn.disabled = true;
-      resendVerificationBtn.textContent = 'Sending...';
-      
-      try {
-        const data = await apiCall('/auth/email/resend', { method: 'POST' });
-        alert(data.message || 'Verification email sent! Check your inbox.');
-      } catch (error) {
-        alert(error.message || 'Failed to send verification email');
-      } finally {
-        resendVerificationBtn.disabled = false;
-        resendVerificationBtn.textContent = 'Resend Verification Email';
-      }
+  if (toggle && nav) {
+    toggle.addEventListener('click', () => {
+      const isOpen = nav.style.display === 'flex';
+      nav.style.display = isOpen ? 'none' : 'flex';
+      if (account) account.style.display = isOpen ? 'none' : 'flex';
     });
   }
 }
+
+// Authentication is server-rendered; only verification resend remains if needed
+function initAuthPage() {}
 
 // ---------- Home Page ----------
-const PLACEHOLDER_POSTER = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="400" height="600">
-    <defs>
-      <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0%" stop-color="#1b2230"/>
-        <stop offset="100%" stop-color="#121721"/>
-      </linearGradient>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#g)"/>
-    <text x="50%" y="50%" fill="#778" font-family="Inter,Arial" font-size="22" text-anchor="middle">No Poster</text>
-  </svg>`);
-
-function renderMovieCards(targetEl, movies) {
-  if (!targetEl) return;
-  targetEl.innerHTML = '';
-  movies.forEach(m => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    const img = document.createElement('img');
-    img.className = 'card__img';
-    img.loading = 'lazy';
-    img.alt = `${m.title} poster`;
-    img.src = m.poster || PLACEHOLDER_POSTER;
-    img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_POSTER; };
-    const body = document.createElement('div');
-    body.className = 'card__body';
-  // Header: title + audience badge on the right
-  const header = document.createElement('div');
-  header.className = 'card__header';
-  const title = document.createElement('strong');
-  title.className = 'card__title';
-  title.textContent = m.title;
-  const audience = document.createElement('span');
-  const aud = (m.audience || '').toString().toUpperCase();
-  const audClass = aud.replace(/[^A-Z0-9-]/g, '');
-  audience.className = `aud-badge ${audClass ? 'aud-badge--' + audClass : ''}`;
-  if (aud) audience.textContent = aud;
-  header.appendChild(title);
-  header.appendChild(audience);
-    const btn = document.createElement('a');
-    btn.href = '/booking';
-    btn.className = 'btn';
-  btn.textContent = 'Buy Tickets';
-    btn.addEventListener('click', () => {
-      try { localStorage.setItem('selectedMovieId', m.id); } catch (e) { }
-    });
-  body.appendChild(header);
-    body.appendChild(btn);
-    card.appendChild(img);
-    card.appendChild(body);
-    targetEl.appendChild(card);
-  });
-}
-
-async function initHomePage() {
-  try {
-    state.movies = await apiCall('/movies');
-
-    // All movies
-    renderMovieCards(allMoviesEl, state.movies);
-
-    // Most watched (sort by viewers_total desc)
-    const rated = [...state.movies].sort((a, b) => {
-      const va = (typeof a.viewers_total === 'number') ? a.viewers_total : 0;
-      const vb = (typeof b.viewers_total === 'number') ? b.viewers_total : 0;
-      return vb - va;
-    });
-    renderMovieCards(topRatedEl, rated);
-
-    // Most popular (shuffle)
-    const popular = [...state.movies].sort(() => Math.random() - 0.5);
-    renderMovieCards(mostPopularEl, popular);
-  } catch (error) {
-    console.error('Failed to load movies:', error);
-  }
+function initHomePage() {
+  // Movies are already rendered server-side in index.blade.php
+  // No JS needed unless we add filtering/search functionality later
 }
 
 // ---------- Booking Page ----------
-async function initBookingPage() {
-  try {
-    // Load movies from API
-    state.movies = await apiCall('/movies');
-
-    if (!state.movies || state.movies.length === 0) {
-      if (movieSelect) {
-        movieSelect.innerHTML = '<option>No movies available</option>';
-        movieSelect.disabled = true;
-      }
-      if (addToCartBtn) addToCartBtn.disabled = true;
-      if (seatMapEl) {
-        const msg = document.createElement('div');
-        msg.className = 'muted';
-        msg.textContent = 'No movies available yet. Please check back later.';
-        seatMapEl.innerHTML = '';
-        seatMapEl.appendChild(msg);
-      }
-      return;
-    }
-
-    // Populate movie select
-    if (movieSelect) {
-      movieSelect.innerHTML = '';
-      state.movies.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = `${m.title} — ₱${m.price}`;
-        movieSelect.appendChild(opt);
-      });
-
-      // Pre-select from localStorage
-      try {
-        const pre = localStorage.getItem('selectedMovieId');
-        if (pre && state.movies.some(m => m.id === pre)) {
-          movieSelect.value = pre;
-          localStorage.removeItem('selectedMovieId');
-        }
-      } catch (e) { }
-    }
-
-    // Set default date (use server date from data attribute, fallback to browser date)
-    if (dateSelect) {
-      const serverDate = dateSelect.getAttribute('data-server-date');
-      if (serverDate) {
-        dateSelect.value = serverDate;
-      } else {
-        // Fallback to browser date if server date not available
-        dateSelect.value = new Date().toISOString().slice(0, 10);
-      }
-      
-      // Make calendar picker open automatically when field is clicked
-      dateSelect.addEventListener('click', function(e) {
-        if (this.showPicker) {
-          try {
-            this.showPicker();
-          } catch(err) {
-            // Fallback for browsers that don't support showPicker
-            console.log('showPicker not supported');
-          }
-        }
-      });
-    }
-
-    // Event listeners
-    function refreshShowtimes() {
-      const mv = state.movies.find(m => m.id === (movieSelect ? movieSelect.value : state.movies[0].id));
-      if (showtimeSelect) {
-        showtimeSelect.innerHTML = '';
-        mv.showtimes.forEach(t => {
-          const o = document.createElement('option');
-          o.value = t;
-          o.textContent = t;
-          showtimeSelect.appendChild(o);
-        });
-      }
-      if (seatPriceDisplay) seatPriceDisplay.textContent = mv.price;
-      updatePaxSummary();
-    }
-
-    // Session parameter change handlers
-    if (movieSelect) movieSelect.addEventListener('change', refreshShowtimes);
-    if (showtimeSelect) showtimeSelect.addEventListener('change', () => {
-      updatePaxSummary();
-    });
-    if (dateSelect) {
-      dateSelect.addEventListener('change', () => {
-        // Validate date is not in the past (use server date from min attribute)
-        const selectedDate = new Date(dateSelect.value);
-        const minDate = new Date(dateSelect.getAttribute('min'));
-        
-        if (selectedDate < minDate) {
-          alert('Cannot book tickets for past dates. Please select today or a future date.');
-          // Reset to server date
-          const serverDate = dateSelect.getAttribute('data-server-date');
-          dateSelect.value = serverDate || new Date().toISOString().slice(0, 10);
-          return;
-        }
-        
-        updatePaxSummary();
-      });
-    }
-    if (cinemaSelect) cinemaSelect.addEventListener('change', () => {
-      updatePaxSummary();
-    });
-
-    // Pax input update
-    function updatePaxSummary() {
-      const mv = state.movies.find(m => m.id === (movieSelect ? movieSelect.value : state.movies[0].id));
-      const price = mv ? Number(mv.price) : 0;
-      const qty = paxInputEl ? Math.max(1, parseInt(paxInputEl.value || '1')) : 1;
-      if (selectedSeatsEl) selectedSeatsEl.textContent = qty;
-      if (totalPriceEl) totalPriceEl.textContent = String(price * qty);
-      if (addToCartBtn) addToCartBtn.disabled = !state.currentUser || qty < 1;
-      if (authHint) authHint.style.display = state.currentUser ? 'none' : '';
-    }
-    if (paxInputEl) paxInputEl.addEventListener('input', updatePaxSummary);
-
-    // Add to cart
-    if (addToCartBtn) {
-      addToCartBtn.addEventListener('click', () => {
-        const mv = state.movies.find(m => m.id === movieSelect.value);
-        const date = dateSelect.value;
-        const time = showtimeSelect.value;
-        const cinema = cinemaSelect.value;
-
-        const qty = paxInputEl ? Math.max(1, parseInt(paxInputEl.value || '1')) : 1;
-        if (!qty || qty < 1) return alert('Enter pax count');
-
-        // Find existing cart item for this session
-        let cartItem = state.cart.find(
-          it => it.movieId === mv.id && it.date === date && it.time === time && it.cinema === cinema
-        );
-
-        if (cartItem) {
-          cartItem.quantity += qty;
-          cartItem.total = mv.price * cartItem.quantity;
-        } else {
-          const itemId = `ci_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
-          const item = {
-            id: itemId,
-            movieId: mv.id,
-            title: mv.title,
-            date,
-            time,
-            cinema,
-            quantity: qty,
-            seatPrice: mv.price,
-            total: mv.price * qty
-          };
-          state.cart.push(item);
-        }
-        renderCart();
-        updatePaxSummary();
-      });
-    }
-
-    function renderCart() {
-      if (!cartListEl) return;
-      cartListEl.innerHTML = '';
-
-      if (state.cart.length === 0) {
-        cartListEl.innerHTML = '<li class="muted">Cart is empty</li>';
-        if (goCheckoutBtnEl) goCheckoutBtnEl.disabled = true;
-        if (clearCartBtnEl) clearCartBtnEl.disabled = true;
-        return;
-      }
-
-      state.cart.forEach(it => {
-        const li = cartItemTpl.content.cloneNode(true);
-        li.querySelector('.cart__movie').textContent = it.title;
-        li.querySelector('.cart__meta').textContent = `${it.date} @ ${it.time}`;
-        li.querySelector('.cart__seats').textContent = `Pax: ${it.quantity}`;
-        li.querySelector('.cart__price span').textContent = it.total;
-
-        const node = li.querySelector('li');
-        node.querySelector('.cart__remove').addEventListener('click', () => {
-          const idx = state.cart.findIndex(x => x.id === it.id);
-          if (idx !== -1) state.cart.splice(idx, 1);
-          renderCart();
-          updatePaxSummary();
-        });
-
-        cartListEl.appendChild(node);
-      });
-
-      if (goCheckoutBtnEl) goCheckoutBtnEl.disabled = !state.currentUser;
-      if (clearCartBtnEl) clearCartBtnEl.disabled = false;
-    }
-
-    if (clearCartBtnEl) {
-      clearCartBtnEl.addEventListener('click', () => {
-        state.cart = [];
-        renderCart();
-        updatePaxSummary();
-      });
-    }
-
-    // Checkout
-    if (goCheckoutBtnEl) {
-      goCheckoutBtnEl.addEventListener('click', () => {
-        if (!state.currentUser) {
-          window.location.href = '/login';
-          return;
-        }
-        if (paymentSection) paymentSection.style.display = '';
-        renderCheckoutSummary();
-      });
-    }
-
-    function renderCheckoutSummary() {
-      if (!checkoutItemsEl) return;
-      checkoutItemsEl.innerHTML = '';
-
-      let total = 0;
-      state.cart.forEach(it => {
-        const li = summaryItemTpl.content.cloneNode(true);
-        li.querySelector('.sum__movie').textContent = it.title;
-        li.querySelector('.sum__meta').textContent = `${it.date} @ ${it.time} — ${it.cinema}`;
-        li.querySelector('.sum__seats').textContent = `Pax: ${it.quantity}`;
-        li.querySelector('.sum__price span').textContent = it.total;
-        checkoutItemsEl.appendChild(li);
-        total += it.total;
-      });
-
-      if (checkoutTotalEl) checkoutTotalEl.textContent = total;
-      if (placeOrderBtnEl) placeOrderBtnEl.disabled = state.cart.length === 0 || !state.currentUser;
-    }
-
-    // Toggle GCash form based on selected payment method
-    const payMethodRadios = document.querySelectorAll('input[name="payMethod"]');
-    const gcashFormEl = document.getElementById('gcashForm');
-    if (payMethodRadios.length && gcashFormEl) {
-      const updatePayUI = () => {
-        const selected = document.querySelector('input[name="payMethod"]:checked');
-        const isGCash = selected && selected.value.toLowerCase() === 'gcash';
-        gcashFormEl.style.display = isGCash ? '' : 'none';
-      };
-      payMethodRadios.forEach(r => r.addEventListener('change', updatePayUI));
-      updatePayUI();
-    }
-
-    // Place order
-    if (placeOrderBtnEl) {
-      placeOrderBtnEl.addEventListener('click', async () => {
-        if (!state.currentUser) {
-          window.location.href = '/login';
-          return;
-        }
-
-        try {
-          const items = state.cart.map(it => ({
-            movieId: it.movieId,
-            title: it.title,
-            date: it.date,
-            time: it.time,
-            cinema: it.cinema,
-            quantity: it.quantity,
-            seatPrice: it.seatPrice
-          }));
-
-          // Determine selected payment method from UI
-          const selectedPay = document.querySelector('input[name="payMethod"]:checked');
-          let paymentMethod = 'digital'; // default to digital
-          if (selectedPay) {
-            paymentMethod = selectedPay.value.toLowerCase() === 'cash' ? 'cash' : 'digital';
-          }
-
-          await apiCall('/bookings', {
-            method: 'POST',
-            body: JSON.stringify({ items, paymentMethod })
-          });
-
-          state.cart = [];
-          renderCart();
-          if (paymentSection) paymentSection.style.display = 'none';
-          alert('Booking confirmed — thank you!');
-          updatePaxSummary();
-          await loadUserBookings();
-        } catch (error) {
-          // Check if error is due to unverified email
-          if (error.message && error.message.includes('verify your email')) {
-            alert('Please verify your email address before booking. Check your inbox for the verification link, or click "Resend Verification Email" above.');
-            window.scrollTo(0, 0); // Scroll to top to see banner
-          } else {
-            alert('Booking failed: ' + error.message);
-          }
-        }
-      });
-    }
-
-    // Resend verification email button
-    if (resendVerificationBtn) {
-      resendVerificationBtn.addEventListener('click', async () => {
-        try {
-          const result = await apiCall('/auth/email/resend', { method: 'POST' });
-          alert(result.message || 'Verification email sent! Please check your inbox.');
-        } catch (error) {
-          alert('Failed to resend email: ' + error.message);
-        }
-      });
-    }
-
-    // Initial render
-    refreshShowtimes();
-    renderCart();
-    updatePaxSummary();
-  } catch (error) {
-    console.error('Failed to initialize booking page:', error);
-  }
-}
-
-// ---------- User Bookings ----------
-async function loadUserBookings() {
-  if (!bookingListEl) return;
-
-  try {
-    const bookings = await apiCall('/bookings');
-    state.bookings = bookings;
-
-    bookingListEl.innerHTML = '';
-
-    if (bookings.length === 0) {
-      bookingListEl.innerHTML = '<li class="muted">No bookings yet.</li>';
-      return;
-    }
-
-    bookings.forEach(b => {
-      const li = document.createElement('li');
-      li.className = 'admin-item';
-      const firstItem = b.items[0];
-      li.innerHTML = `<div>
-        <strong>${firstItem.movie_title || firstItem.title}</strong>
-        <small>${new Date(b.created_at).toLocaleString()}</small>
-        <div class="cart__meta">${firstItem.date || firstItem.booking_date} @ ${firstItem.time || firstItem.showtime} — ${firstItem.cinema}</div>
-        <div class="cart__seats">Pax: ${b.items.reduce((sum, it) => sum + (it.quantity || 0), 0)}</div>
-        <div class="cart__meta">Status: ${b.status || 'Paid'}</div>
-      </div>
-      <div><div class="cart__price">₱${peso(b.total)}</div></div>`;
-      bookingListEl.appendChild(li);
-    });
-  } catch (error) {
-    console.error('Failed to load bookings:', error);
-    if (bookingListEl) bookingListEl.innerHTML = '<li class="muted">Failed to load bookings</li>';
-  }
-}
+function initBookingPage() { /* Booking now uses standard Blade forms */ }
 
 // ---------- Admin Page ----------
 async function initAdminPage() {
-  // Guard: only admins
-  if (!state.currentUser || state.currentUser.role !== 'admin') {
-    window.location.href = '/login';
-    return;
-  }
-
-  await loadAdminData();
-
-  // Reset button
-  const resetBtn = document.getElementById('resetDemoBtn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', async () => {
-      const ok = confirm('Reset all bookings? This cannot be undone.');
-      if (!ok) return;
-
-      try {
-        await apiCall('/bookings/reset', { method: 'DELETE' });
-        alert('Demo data has been reset.');
-        await loadAdminData();
-      } catch (error) {
-        alert('Reset failed: ' + error.message);
-      }
-    });
-  }
-
+  // Admin data is already passed via Blade, but we still need API for add/edit/delete operations
+  
   // Add movie
   if (movieForm) {
     movieForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (movieErr) movieErr.textContent = '';
 
-  const title = mvTitle ? mvTitle.value.trim() : '';
-  const price = mvPrice ? Number(mvPrice.value) : 0;
-  const audience = mvAudience ? mvAudience.value : 'PG';
-      const poster = mvPoster ? mvPoster.value.trim() : '';
-      const timesStr = mvTimes ? mvTimes.value.trim() : '';
-
-      if (!title || !price || !timesStr) {
-        if (movieErr) movieErr.textContent = 'Title, price, and showtimes are required';
-        return;
-      }
-
-      const showtimes = timesStr.split(',').map(s => s.trim()).filter(Boolean);
+      const times = mvTimes.value.split('\n').map(t => t.trim()).filter(Boolean);
 
       try {
         await apiCall('/movies', {
           method: 'POST',
-          body: JSON.stringify({ title, price, poster, audience, showtimes })
+          body: JSON.stringify({
+            title: mvTitle.value,
+            price: Number(mvPrice.value),
+            audience: mvAudience.value,
+            poster: mvPoster.value || 'https://via.placeholder.com/300x450',
+            showtimes: times
+          })
         });
 
         alert('Movie added successfully!');
+        window.location.reload();
+      } catch (err) {
+        if (movieErr) movieErr.textContent = err.message;
+      }
+    });
+  }
 
-        // Clear form
-  if (mvTitle) mvTitle.value = '';
-  if (mvPrice) mvPrice.value = '';
-  if (mvAudience) mvAudience.value = 'PG';
-        if (mvPoster) mvPoster.value = '';
-  if (mvTimes) mvTimes.value = '';
+  // Delete movie
+  if (adminMovieList) {
+    adminMovieList.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('admin-item__delete')) {
+        const movieId = e.target.getAttribute('data-id');
+        if (!confirm('Delete this movie?')) return;
 
-        await loadAdminData();
-      } catch (error) {
-        if (movieErr) movieErr.textContent = error.message;
+        try {
+          await apiCall(`/movies/${movieId}`, { method: 'DELETE' });
+          window.location.reload();
+        } catch (err) {
+          alert(err.message || 'Failed to delete movie');
+        }
+      }
+    });
+  }
+
+  // Cancel booking
+  if (adminBookingList) {
+    adminBookingList.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('booking-item__cancel')) {
+        const bookingId = e.target.getAttribute('data-id');
+        if (!confirm('Cancel this booking?')) return;
+
+        try {
+          await apiCall(`/bookings/${bookingId}/cancel`, { method: 'PUT' });
+          window.location.reload();
+        } catch (err) {
+          alert(err.message || 'Failed to cancel booking');
+        }
       }
     });
   }
 }
 
-async function loadAdminData() {
-  try {
-    // Load movies
-    const movies = await apiCall('/movies');
-    state.movies = movies;
-
-    // Load bookings
-    const bookings = await apiCall('/bookings');
-    state.bookings = bookings;
-
-    renderAdminMovies();
-    renderAdminBookings();
-    renderAdminKPIs();
-  } catch (error) {
-    console.error('Failed to load admin data:', error);
-  }
-}
-
-function renderAdminMovies() {
-  if (!adminMovieList) return;
-  adminMovieList.innerHTML = '';
-
-  state.movies.forEach(m => {
-    const li = document.createElement('li');
-    li.className = 'admin-item';
-    li.innerHTML = `<div>
-      <strong>${m.title}</strong> <small>₱${m.price} — ${m.showtimes.join(', ')}</small>
-    </div>`;
-    adminMovieList.appendChild(li);
-  });
-}
-
-function renderAdminBookings() {
-  if (!adminBookingList) return;
-  adminBookingList.innerHTML = '';
-
-  if (state.bookings.length === 0) {
-    adminBookingList.innerHTML = '<li class="muted">No bookings</li>';
-    return;
-  }
-
-  state.bookings.slice().reverse().forEach(b => {
-    const li = document.createElement('li');
-    li.className = 'admin-item';
-    const movieTitles = b.items.map(it => it.movie_title).filter((v, i, a) => a.indexOf(v) === i).join(', ');
-    li.innerHTML = `<div>
-      <strong>${b.name || 'Guest'}</strong>
-      <small>${new Date(b.created_at).toLocaleString()}</small>
-      <div class="admin-item-meta">${movieTitles}</div>
-      <small class="muted">${b.email || ''} — ₱${peso(b.total)} — Status: ${b.status || 'Paid'}</small>
-    </div>
-    <div>
-      <button class="btn btn--ghost admin-cancel" data-id="${b.id}" ${b.status === 'Cancelled' ? 'disabled' : ''}>Cancel</button>
-    </div>`;
-    adminBookingList.appendChild(li);
-  });
-
-  // Attach cancel handlers
-  adminBookingList.querySelectorAll('.admin-cancel').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = e.currentTarget.dataset.id;
-      try {
-        await apiCall(`/bookings/${id}/cancel`, { method: 'PUT' });
-        await loadAdminData();
-      } catch (error) {
-        alert('Cancel failed: ' + error.message);
-      }
-    });
-  });
-}
-
-function renderAdminKPIs() {
-  if (kpiMovies) kpiMovies.textContent = state.movies.length;
-  if (kpiBookings) kpiBookings.textContent = state.bookings.length;
-
-  const statusCounts = state.bookings.reduce((acc, b) => {
-    const s = b.status || 'Paid';
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {});
-
-  if (kpiPaid) kpiPaid.textContent = statusCounts['Paid'] || 0;
-  if (kpiPending) kpiPending.textContent = statusCounts['Pending'] || 0;
-  if (kpiCancelled) kpiCancelled.textContent = statusCounts['Cancelled'] || 0;
-}
-
-// ---------- Staff Page ----------
+// ---------- Staff Page (QR Scanner + Walk-in Booking) ----------
 async function initStaffPage() {
-  // Display staff info
-  const staffNameEl = document.getElementById('staffName');
-  const staffRoleEl = document.getElementById('staffRole');
-  
-  if (state.currentUser) {
-    if (staffNameEl) staffNameEl.textContent = state.currentUser.name;
-    if (staffRoleEl) {
-      staffRoleEl.textContent = state.currentUser.role.toUpperCase();
-      staffRoleEl.style.background = state.currentUser.role === 'admin' ? '#e74c3c' : '#3498db';
-    }
-  }
-
-  // Mode switching
-  const modeBtns = document.querySelectorAll('.mode-btn');
-  const scannerMode = document.getElementById('scannerMode');
-  const walkinMode = document.getElementById('walkinMode');
-
-  modeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      
-      modeBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      if (mode === 'scanner') {
-        scannerMode.style.display = 'block';
-        walkinMode.style.display = 'none';
-        initQRScanner();
-      } else {
-        scannerMode.style.display = 'none';
-        walkinMode.style.display = 'block';
-        stopQRScanner();
-        initWalkinBooking();
-      }
-    });
-  });
-
-  // Initialize scanner mode by default
-  initQRScanner();
+  // QR scanner and walk-in booking still require JS
+  await initQRScanner();
+  await initWalkinBooking();
 }
-
-// QR Scanner functionality
-let html5QrCode = null;
-let isScanning = false;
 
 async function initQRScanner() {
-  const cameraPreview = document.querySelector('.camera-preview');
+  const scannerContainer = document.getElementById('qr-reader');
+  const scanResult = document.getElementById('scanResult');
   const manualTokenInput = document.getElementById('manualToken');
-  const manualScanBtn = document.getElementById('manualScanBtn');
+  const verifyManualBtn = document.getElementById('manualScanBtn');
+  const scannerMode = document.getElementById('scannerMode');
 
-  // Manual token entry
-  if (manualScanBtn) {
-    manualScanBtn.addEventListener('click', () => {
-      const token = manualTokenInput.value.trim();
-      if (token) {
-        processScan(token);
-        manualTokenInput.value = '';
-      }
-    });
-    
-    // Also allow Enter key
-    manualTokenInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const token = manualTokenInput.value.trim();
-        if (token) {
-          processScan(token);
-          manualTokenInput.value = '';
-        }
-      }
-    });
-  }
+  if (!scannerContainer) return;
 
-  // Initialize html5-qrcode scanner
-  if (cameraPreview && !html5QrCode) {
-    // Dynamically import the library
+  let html5QrCode = null;
+  let scanning = false;
+  let processing = false;
+  let lastScanned = '';
+  let lastScanAt = 0;
+
+  async function ensureScannerStarted() {
+    if (scanning) return;
     try {
+      // Lazy-load the QR library only when needed
       const { Html5Qrcode } = await import('html5-qrcode');
-      
-      // Create scanner instance with a container div
-      const scannerId = 'qr-reader';
-      let scannerContainer = document.getElementById(scannerId);
-      
-      if (!scannerContainer) {
-        scannerContainer = document.createElement('div');
-        scannerContainer.id = scannerId;
-        scannerContainer.style.width = '100%';
-        cameraPreview.innerHTML = ''; // Clear existing content
-        cameraPreview.appendChild(scannerContainer);
-      }
-      
-      html5QrCode = new Html5Qrcode(scannerId);
-      
-      // Start scanning
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      };
-      
-      const onScanSuccess = (decodedText, decodedResult) => {
-        if (!isScanning) return; // Prevent multiple scans
-        
-        isScanning = false;
-        console.log('QR Code detected:', decodedText);
-        
-        // Process the scanned token
-        processScan(decodedText);
-        
-        // Pause scanning briefly to avoid duplicate scans
-        setTimeout(() => {
-          isScanning = true;
-        }, 2000);
-      };
-      
-      const onScanFailure = (error) => {
-        // Ignore scan failures (normal when no QR in view)
-      };
-      
-      // Try to use back camera (mobile) or any available camera
-      html5QrCode.start(
-        { facingMode: "environment" },
-        config,
+      html5QrCode = new Html5Qrcode('qr-reader');
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 250 },
         onScanSuccess,
-        onScanFailure
-      ).then(() => {
-        isScanning = true;
-        console.log('QR Scanner started successfully');
-      }).catch((err) => {
-        console.warn('Failed to start camera, trying default camera:', err);
-        // Fallback to any available camera
-        html5QrCode.start(
-          { facingMode: "user" },
-          config,
-          onScanSuccess,
-          onScanFailure
-        ).then(() => {
-          isScanning = true;
-          console.log('QR Scanner started with front camera');
-        }).catch((err2) => {
-          console.error('Failed to start QR scanner:', err2);
-          cameraPreview.innerHTML = `
-            <div style="text-align:center;padding:40px;background:#f8d7da;border-radius:8px;color:#721c24">
-              <p style="font-weight:600;margin-bottom:10px">⚠️ Camera Access Required</p>
-              <p style="font-size:0.9rem">Please allow camera access in your browser settings to use QR scanning.</p>
-              <p style="font-size:0.85rem;margin-top:15px;color:#555">You can still use manual token entry below.</p>
-            </div>
-          `;
-        });
-      });
-      
-    } catch (error) {
-      console.error('Failed to load QR scanner library:', error);
-      cameraPreview.innerHTML = `
-        <div style="text-align:center;padding:40px;background:#fff3cd;border-radius:8px">
-          <p style="color:#856404">QR scanner library failed to load. Please use manual token entry.</p>
-        </div>
-      `;
+        () => {}
+      );
+      scanning = true;
+    } catch (err) {
+      console.error('Failed to start scanner:', err);
+      // Don't alert immediately; user might not have granted camera permissions yet
     }
   }
-}
 
-async function stopQRScanner() {
-  if (html5QrCode && isScanning) {
+  async function stopScanner() {
+    if (html5QrCode && scanning) {
+      try { await html5QrCode.stop(); } catch (_) {}
+      scanning = false;
+    }
+  }
+
+  async function onScanSuccess(decodedText) {
+    const now = Date.now();
+    // Ignore duplicate reads within 2.5s or while processing
+    if (processing) return;
+    if (decodedText === lastScanned && (now - lastScanAt) < 2500) return;
+    processing = true;
+    lastScanned = decodedText;
+    lastScanAt = now;
     try {
-      await html5QrCode.stop();
-      isScanning = false;
-      console.log('QR Scanner stopped');
-    } catch (error) {
-      console.error('Error stopping scanner:', error);
-    }
-  }
-}
-
-async function processScan(token, isConfirmCash = false) {
-  const scanResult = document.getElementById('scanResult');
-  
-  try {
-    scanResult.style.display = 'block';
-    scanResult.className = 'scan-result';
-    scanResult.innerHTML = '<p>Processing...</p>';
-
-    const response = await apiCall('/bookings/scan', {
-      method: 'POST',
-      body: JSON.stringify({ token, confirmCash: isConfirmCash })
-    });
-
-    if (response.pending_payment) {
-      // Cash payment pending - show confirmation button
-      displayScanResult('pending', response, token);
-    } else if (response.success) {
-      // Success - checked in
-      displayScanResult('success', response, token);
-    }
-  } catch (error) {
-    displayScanResult('error', { error: error.message || 'Scan failed' }, token);
-  }
-}
-
-// Expose processScan to global scope for inline onclick handlers
-window.processScan = processScan;
-
-function displayScanResult(type, data, token) {
-  const scanResult = document.getElementById('scanResult');
-  scanResult.className = `scan-result ${type}`;
-
-  let icon = '✓';
-  let title = 'Success!';
-  if (type === 'pending') {
-    icon = '💰';
-    title = 'Cash Payment Required';
-  } else if (type === 'error') {
-    icon = '✗';
-    title = 'Error';
-  }
-
-  let html = `
-    <div class="result-header">
-      <span style="font-size:1.5rem">${icon}</span>
-      <span>${title}</span>
-    </div>
-  `;
-
-  if (type === 'error') {
-    html += `<p style="margin-top:10px">${data.error}</p>`;
-  } else {
-    const booking = data.booking;
-    html += `
-      <div class="result-details">
-        <div class="detail-row">
-          <span class="detail-label">Booking ID</span>
-          <span>${booking.id}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Customer</span>
-          <span>${booking.name}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Movie</span>
-          <span>${booking.movie}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Date & Time</span>
-          <span>${booking.date} at ${booking.time}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Cinema</span>
-          <span>${booking.cinema}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Pax</span>
-          <span>${booking.pax}</span>
-        </div>
-        <div class="detail-row" style="border-top:2px solid rgba(0,0,0,0.2);padding-top:12px;margin-top:8px">
-          <span class="detail-label" style="font-size:1.1rem">Total</span>
-          <span style="font-size:1.2rem;font-weight:700;color:#e74c3c">₱${booking.total.toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-
-    if (type === 'pending') {
-      html += `
-        <div class="result-actions">
-          <button class="btn-primary" onclick="processScan('${token.replace(/'/g, "\\'")}', true)" style="flex:1;font-size:1.1rem;padding:15px">
-            Accept Cash & Check-in
-          </button>
-        </div>
-      `;
-    } else {
-      html += `
-        <p style="margin-top:15px;font-weight:600;color:#27ae60">
-          ✓ Checked in at ${booking.checked_in_at}
-        </p>
-      `;
+      await verifyToken(decodedText);
+    } finally {
+      // Pause camera to prevent repeated scans of the same code
+      await stopScanner();
+      // allow another scan after UI action
+      setTimeout(() => { processing = false; }, 250);
     }
   }
 
-  html += `
-    <div class="result-actions" style="margin-top:20px">
-      <button class="btn-secondary" onclick="location.reload()" style="padding:10px 20px">
-        Scan Next
-      </button>
-    </div>
-  `;
-
-  scanResult.innerHTML = html;
-}
-
-// Walk-in Booking functionality
-let walkinState = {
-  selectedMovie: null,
-  selectedQuantity: 1
-};
-
-async function initWalkinBooking() {
-  const movieGrid = document.getElementById('walkinMovieGrid');
-  
-  // Load movies
-  try {
-    const movies = await apiCall('/movies');
-    state.movies = movies;
-
-    movieGrid.innerHTML = movies.map(movie => `
-      <div class="movie-card-small" data-movie-id="${movie.id}">
-        <h4>${movie.title}</h4>
-        <p class="price">₱${parseFloat(movie.price).toFixed(2)}</p>
-        <p style="font-size:0.85rem;color:#7f8c8d">${movie.showtimes?.length || 0} showtimes</p>
-      </div>
-    `).join('');
-
-    // Movie selection handlers
-    document.querySelectorAll('.movie-card-small').forEach(card => {
-      card.addEventListener('click', () => {
-        document.querySelectorAll('.movie-card-small').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        
-        const movieId = card.dataset.movieId;
-        walkinState.selectedMovie = movies.find(m => m.id === movieId);
-        
-        // Show date/time/cinema step
-        document.getElementById('dateTimeCinemaStep').style.display = 'block';
-        
-        // Populate showtimes
-        const showtimeSelect = document.getElementById('walkinShowtime');
-        showtimeSelect.innerHTML = '<option value="">Select time</option>' +
-          walkinState.selectedMovie.showtimes.map(st => 
-            `<option value="${st}">${st}</option>`
-          ).join('');
-      });
-    });
-
-  } catch (error) {
-    movieGrid.innerHTML = '<p style="text-align:center;color:#e74c3c">Failed to load movies</p>';
-  }
-
-  // Proceed to pax selection
-  const proceedBtn = document.getElementById('proceedToSeatsBtn');
-  if (proceedBtn) {
-    proceedBtn.addEventListener('click', async () => {
-      const date = document.getElementById('walkinDate').value;
-      const time = document.getElementById('walkinShowtime').value;
-      const cinema = document.getElementById('walkinCinema').value;
-
-      if (!date || !time || !cinema) {
-        alert('Please select date, showtime, and cinema');
+  // Manual token verification
+  if (verifyManualBtn) {
+    verifyManualBtn.addEventListener('click', async () => {
+      const token = manualTokenInput?.value.trim();
+      if (!token) {
+        alert('Enter a token');
         return;
       }
+      await verifyToken(token);
+    });
+  }
 
-      // Show seat selection step
-      document.getElementById('seatSelectionStep').style.display = 'block';
-      
-      // Display movie info
-      document.getElementById('selectedMovieInfo').innerHTML = `
-        <strong>${walkinState.selectedMovie.title}</strong><br>
-        ${date} at ${time} • ${cinema}
+  // Support Enter key for hardware scanners
+  if (manualTokenInput) {
+    manualTokenInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        verifyManualBtn?.click();
+      }
+    });
+  }
+
+  async function verifyToken(token) {
+    if (!scanResult) return;
+
+    try {
+      const data = await apiCall('/bookings/scan', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+      });
+
+      const isPending = data.pending_payment === true || data?.booking?.status === 'Pending';
+      const awaitingCheckin = data.awaiting_checkin === true || data?.booking?.status === 'Paid';
+
+      scanResult.className = 'scan-result ' + (isPending ? 'pending' : 'success');
+      scanResult.style.display = 'block';
+
+      const detailsHtml = `
+        <div class="result-details">
+          <div class="detail-row"><span class="detail-label">Name</span><span>${data.booking?.name || '-'}</span></div>
+          <div class="detail-row"><span class="detail-label">Total</span><span>₱${data.booking?.total ?? '-'}</span></div>
+          <div class="detail-row"><span class="detail-label">Status</span><span>${data.booking?.status ?? '-'}</span></div>
+        </div>`;
+
+      let actionsHtml = '';
+      if (isPending) {
+        actionsHtml = '<button id="acceptCashBtn" class="btn-primary">Accept Cash & Check-in</button>';
+      } else if (awaitingCheckin) {
+        actionsHtml = '<button id="verifyEntryBtn" class="btn-primary">Verify Entry</button>';
+      }
+
+      scanResult.innerHTML = `
+        <div class="result-header">${isPending ? '⚠ Pending Payment' : '✓ Valid Ticket'}</div>
+        ${detailsHtml}
+        <div class="result-actions">${actionsHtml || '<button id="scanNextBtn" class="btn-secondary">Scan Next</button>'}</div>
       `;
-      updateWalkinSummary();
 
-      const paxEl = document.getElementById('walkinPax');
-      if (paxEl) {
-        paxEl.addEventListener('input', () => {
-          const val = Math.max(1, parseInt(paxEl.value || '1'));
-          walkinState.selectedQuantity = val;
-          updateWalkinSummary();
+      // Clear input for next scan
+      if (manualTokenInput) manualTokenInput.value = '';
+
+      const acceptCashBtn = document.getElementById('acceptCashBtn');
+      if (acceptCashBtn) {
+        acceptCashBtn.addEventListener('click', async () => {
+          try {
+            await apiCall('/bookings/scan', {
+              method: 'POST',
+              // Accept cash and check-in in one step
+              body: JSON.stringify({ token, confirmCash: true, confirmCheckIn: true })
+            });
+            scanResult.className = 'scan-result success';
+            scanResult.innerHTML = '<div class="result-header">✓ Checked In Successfully</div>';
+          } catch (err) {
+            alert(err.message || 'Failed to process payment');
+          }
         });
       }
 
-      // Scroll to seat selection
-      document.getElementById('seatSelectionStep').scrollIntoView({ behavior: 'smooth' });
-    });
+      const verifyEntryBtn = document.getElementById('verifyEntryBtn');
+      if (verifyEntryBtn) {
+        verifyEntryBtn.addEventListener('click', async () => {
+          try {
+            await apiCall('/bookings/scan', {
+              method: 'POST',
+              body: JSON.stringify({ token, confirmCheckIn: true })
+            });
+            scanResult.className = 'scan-result success';
+            scanResult.innerHTML = '<div class="result-header">✓ Check-in Verified</div><div class="result-actions"><button id="scanNextBtn" class="btn-secondary">Scan Next</button></div>';
+          } catch (err) {
+            alert(err.message || 'Failed to check-in');
+          }
+        });
+      }
+
+      const scanNextBtn = document.getElementById('scanNextBtn');
+      if (scanNextBtn) {
+        scanNextBtn.addEventListener('click', () => {
+          ensureScannerStarted();
+        });
+      }
+    } catch (err) {
+      scanResult.className = 'scan-result error';
+      scanResult.style.display = 'block';
+      scanResult.innerHTML = `<div class="result-header">✗ ${err.message}</div>`;
+      // Allow scanning again after error message is shown
+      const btn = document.createElement('button');
+      btn.textContent = 'Scan Next';
+      btn.className = 'btn-secondary';
+      btn.addEventListener('click', () => ensureScannerStarted());
+      const actions = document.createElement('div');
+      actions.className = 'result-actions';
+      actions.appendChild(btn);
+      scanResult.appendChild(actions);
+    }
   }
 
-  // Back button
+  // Desktop: start camera immediately since both panels are visible
+  // Mobile: start only when scanner section is in view or hash points to it
+  function shouldStartScanner() {
+    const isMobile = window.innerWidth < 1024;
+    if (!isMobile) return true; // Desktop: always show scanner
+    // Mobile: start if hash points to scanner or no hash (scanner is first panel)
+    const hash = location.hash.toLowerCase();
+    return !hash || hash.includes('scanner');
+  }
+
+  function handleVisibility() {
+    if (shouldStartScanner()) {
+      ensureScannerStarted();
+    } else {
+      stopScanner();
+    }
+  }
+
+  handleVisibility();
+  window.addEventListener('hashchange', handleVisibility);
+  window.addEventListener('resize', handleVisibility);
+}
+
+async function initWalkinBooking() {
+  const walkinMode = document.getElementById('walkinMode');
+  if (!walkinMode) return;
+
+  const movieGrid = document.getElementById('walkinMovieGrid');
+  const dateInput = document.getElementById('walkinDate');
+  const showtimeSelect = document.getElementById('walkinShowtime');
+  const cinemaSelect = document.getElementById('walkinCinema');
+  const proceedBtn = document.getElementById('proceedToSeatsBtn');
+  const seatStep = document.getElementById('seatSelectionStep');
+  const dateTimeCinemaStep = document.getElementById('dateTimeCinemaStep');
+  const selectedMovieInfo = document.getElementById('selectedMovieInfo');
+  const paxInput = document.getElementById('walkinPax');
+  const seatsCount = document.getElementById('selectedSeatsCount');
+  const totalAmount = document.getElementById('totalAmount');
   const backBtn = document.getElementById('backToMovieBtn');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      document.getElementById('seatSelectionStep').style.display = 'none';
-      walkinState.selectedQuantity = 1;
-      updateWalkinSummary();
-    });
-  }
-
-  // Confirm booking button
   const confirmBtn = document.getElementById('confirmWalkinBookingBtn');
-  if (confirmBtn) {
-    confirmBtn.addEventListener('click', confirmWalkinBooking);
-  }
-}
 
-function updateWalkinSummary() {
-  const countEl = document.getElementById('selectedSeatsCount');
-  const totalEl = document.getElementById('totalAmount');
-  
-  const count = walkinState.selectedQuantity || 1;
-  const price = walkinState.selectedMovie ? parseFloat(walkinState.selectedMovie.price) : 0;
-  const total = count * price;
-  
-  if (countEl) countEl.textContent = count;
-  if (totalEl) totalEl.textContent = `₱${total.toFixed(2)}`;
-}
+  let movies = [];
+  let chosenMovie = null;
 
-async function confirmWalkinBooking() {
-  const customerName = document.getElementById('customerName').value.trim();
-  const customerEmail = document.getElementById('customerEmail').value.trim();
-  const customerPhone = document.getElementById('customerPhone').value.trim();
-  const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+  function formatCurrency(n){ return `₱${Number(n).toFixed(2)}`; }
 
-  if (!customerName) {
-    alert('Please enter customer name');
+  // Load movies
+  try {
+    movies = await apiCall('/movies');
+  } catch (e) {
+    console.error(e);
     return;
   }
 
-  const paxEl = document.getElementById('walkinPax');
-  const qty = Math.max(1, parseInt(paxEl ? paxEl.value : '1'));
+  // Render movie cards
+  if (movieGrid) {
+    movieGrid.innerHTML = '';
+    movies.forEach(m => {
+      const card = document.createElement('div');
+      card.className = 'movie-card-small';
+      card.innerHTML = `
+        <div class="title"><h4>${m.title}</h4></div>
+        <div class="price">${formatCurrency(m.price)}</div>
+      `;
+      card.addEventListener('click', () => selectMovie(m, card));
+      movieGrid.appendChild(card);
+    });
+  }
 
-  const date = document.getElementById('walkinDate').value;
-  const time = document.getElementById('walkinShowtime').value;
-  const cinema = document.getElementById('walkinCinema').value;
+  function selectMovie(m, cardEl){
+    chosenMovie = m;
+    // highlight selected
+    document.querySelectorAll('.movie-card-small').forEach(c => c.classList.remove('selected'));
+    cardEl.classList.add('selected');
 
-  const bookingData = {
-    paymentMethod: paymentMethod,
-    items: [{
-      movieId: walkinState.selectedMovie.id,
-      title: walkinState.selectedMovie.title,
-      date: date,
-      time: time,
-      cinema: cinema,
-      quantity: qty,
-      seatPrice: parseFloat(walkinState.selectedMovie.price)
-    }]
-  };
-
-  try {
-    // For walk-in, we need to create a booking without authentication
-    // We'll need to modify the API or create a guest user
-    // For now, let's assume staff creates booking on behalf of customer
-    const response = await apiCall('/bookings', {
-      method: 'POST',
-      body: JSON.stringify(bookingData)
+    // populate showtimes
+    const times = (m.showtimes || []).map(st => typeof st === 'object' ? st.showtime : st);
+    showtimeSelect.innerHTML = '<option value="">Select time</option>';
+    times.forEach(t => {
+      const opt = document.createElement('option'); opt.value = t; opt.textContent = t; showtimeSelect.appendChild(opt);
     });
 
-    if (response.success) {
-      alert(`Booking confirmed! Booking ID: ${response.bookingId}\n\nAn e-ticket has been sent to ${customerEmail || 'the customer'}.`);
-      location.reload();
-    }
-  } catch (error) {
-    alert('Booking failed: ' + (error.message || 'Unknown error'));
+    dateTimeCinemaStep.style.display = 'block';
   }
+
+  if (proceedBtn) {
+    proceedBtn.addEventListener('click', () => {
+      if (!chosenMovie || !dateInput.value || !showtimeSelect.value || !cinemaSelect.value){
+        alert('Please complete date, time, and cinema');
+        return;
+        }
+      seatStep.style.display = 'block';
+      selectedMovieInfo.textContent = `${chosenMovie.title} — ${dateInput.value} ${showtimeSelect.value} • ${cinemaSelect.value}`;
+      updateTotals();
+      seatStep.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  function updateTotals(){
+    const pax = Number(paxInput.value || 1);
+    seatsCount.textContent = pax;
+    totalAmount.textContent = formatCurrency(pax * (chosenMovie?.price || 0));
+  }
+  paxInput?.addEventListener('input', updateTotals);
+
+  backBtn?.addEventListener('click', () => {
+    seatStep.style.display = 'none';
+  });
+
+  confirmBtn?.addEventListener('click', async () => {
+    if (!chosenMovie) return;
+    const name = document.getElementById('customerName')?.value.trim();
+    const email = document.getElementById('customerEmail')?.value.trim();
+    const phone = document.getElementById('customerPhone')?.value.trim();
+    const paymentMethod = (document.querySelector('input[name="paymentMethod"]:checked')?.value) || 'cash';
+    const quantity = Number(paxInput.value || 1);
+
+    const payload = {
+      paymentMethod,
+      customer: { name, email, phone },
+      items: [{
+        movieId: chosenMovie.id,
+        title: chosenMovie.title,
+        date: dateInput.value,
+        time: showtimeSelect.value,
+        cinema: cinemaSelect.value,
+        quantity,
+        seatPrice: Number(chosenMovie.price)
+      }]
+    };
+
+    try {
+      await apiCall('/bookings', { method: 'POST', body: JSON.stringify(payload) });
+      alert('Walk-in booking created.');
+      location.hash = '#scannerMode';
+      location.reload();
+    } catch (err) {
+      alert(err.message || 'Booking failed');
+    }
+  });
 }
 
-// ---------- Global Init ----------
+// ---------- QR Test Page ----------
+function initQRTestPage() {
+  const bookingSelect = document.getElementById('bookingSelect');
+  const qrDisplay = document.getElementById('qrDisplay');
+  const tokenDisplay = document.getElementById('tokenDisplay');
+
+  if (!bookingSelect) return;
+
+  const bookings = window.initialData?.bookings || [];
+
+  bookingSelect.addEventListener('change', () => {
+    const bookingId = bookingSelect.value;
+    const booking = bookings.find(b => b.id === bookingId);
+
+    if (booking && qrDisplay && tokenDisplay) {
+      // Generate QR code using qrcode library
+      QRCode.toCanvas(qrDisplay, booking.et_qr_token, { width: 300 }, (error) => {
+        if (error) console.error(error);
+      });
+      tokenDisplay.textContent = booking.et_qr_token;
+    }
+  });
+}
+
+// ---------- Global Initialization ----------
 async function initGlobal() {
+  setupMobileNav();
+
+  // Set current year in footer
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-  // Check session
-  await checkSession();
-
-  const page = document.body && document.body.dataset.page;
-
-  if (page === 'auth') {
-    initAuthPage();
-  } else {
-    // Logout handler for non-auth pages
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
-        try {
-          await apiCall('/auth/logout', { method: 'POST' });
-          state.currentUser = null;
-          updateAccountUI();
-          window.location.href = '/';
-        } catch (error) {
-          console.error('Logout failed:', error);
-        }
-      });
-    }
-  }
-
-  if (page === 'booking') {
-    await initBookingPage();
-    await loadUserBookings();
-  }
-
-  if (page === 'admin') {
-    await initAdminPage();
-  }
-
-  if (page === 'staff') {
-    await initStaffPage();
-  }
-
-  if (page === 'home') {
-    await initHomePage();
+  // Page-specific initialization
+  const page = document.body.getAttribute('data-page');
+  
+  switch (page) {
+    case 'home':
+      initHomePage();
+      break;
+    case 'booking':
+      initBookingPage();
+      break;
+    case 'login':
+      initAuthPage();
+      break;
+    case 'admin':
+      await initAdminPage();
+      break;
+    case 'staff':
+      await initStaffPage();
+      break;
+    case 'qr-test':
+      initQRTestPage();
+      break;
   }
 }
 
-// Run init
-initGlobal();
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initGlobal);
+} else {
+  initGlobal();
+}
