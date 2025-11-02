@@ -1,212 +1,187 @@
-# XentroCine - Cinema Booking System
+# XentroCine — Cinema Booking (Laravel 12)
 
-A cinema booking system built with Laravel 11 and PHP. This project was migrated from a Node.js/Express application to Laravel, providing a modern, secure, and scalable solution for managing movie screenings, bookings, and customer accounts.
+XentroCine is a cinema booking system migrated from Node.js/Express to Laravel 12 (PHP 8.2) with vanilla JavaScript on the frontend. It supports online booking, QR-based e-tickets, a staff portal with camera scanning, and walk‑in bookings.
 
-## 📋 What This System Does
+This README is the single source of truth for setup and development on macOS and Windows. We use Cloudflare Tunnel for mobile testing over HTTPS.
 
-XentroCine is a web-based cinema management and booking platform that includes:
+## Features
 
-- **User Management**: Customer registration and authentication with role-based access (client/admin)
-- **Movie Catalog**: Browse available movies with details, posters, and pricing
-- **Showtime Scheduling**: View movie screening times and availability
-- **Seat Booking**: Real-time seat selection and booking with conflict prevention
-- **Booking Management**: View, track, and cancel bookings
-- **Admin Dashboard**: Administrative interface for managing movies, showtimes, and viewing booking statistics
-- **Session-Based Authentication**: Secure login system with bcrypt password hashing
+- Browse movies and showtimes, reserve seats or pax
+- E‑ticket with unique QR token sent by email
+- Staff portal with camera scanner (html5‑qrcode)
+- Check‑in flow:
+    - Paid (GCash/digital): staff must tap Verify Entry to check in
+    - Pending (cash): staff taps Accept Cash & Check‑in to mark Paid and check in
+- Admin can manage movies and view bookings
+- Session‑based auth with email verification and roles (client, staff, admin)
 
-## 🛠️ Requirements
+## Tech stack
 
-Before setting up this project, ensure you have the following installed:
+- Backend: Laravel 12, PHP 8.2, MySQL/MariaDB
+- Frontend: Blade + vanilla JS (Vite build)
+- QR: simplesoftwareio/simple‑qrcode (email), html5‑qrcode (scanner)
 
-- **PHP** >= 8.2
-- **Composer** (PHP dependency manager)
-- **Node.js** >= 18.x and **npm** (for frontend asset compilation)
-- **MySQL** >= 8.0 or **MariaDB** >= 10.3
-- **Web Server** (Apache/Nginx) or use Laravel's built-in server
+## Prerequisites
 
-## 🚀 Installation & Setup
+Install the following before starting.
 
-### 1. Clone the Repository
+Windows
+- PHP 8.2 (XAMPP, WAMP, or https://windows.php.net)
+- Composer https://getcomposer.org/download/
+- MySQL 8+ or MariaDB 10.6+
+- Node.js 18+ (LTS) https://nodejs.org/en
+- Cloudflare Tunnel (cloudflared) https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+
+macOS
+- Homebrew https://brew.sh/
+- PHP 8.2: `brew install php@8.2 && brew link php@8.2 --force`
+- Composer: `brew install composer`
+- MySQL: `brew install mysql && brew services start mysql` (or `brew install mariadb`)
+- Node.js: `brew install node`
+- ImageMagick + Imagick (for PNG QR in emails, optional): `brew install imagemagick && pecl install imagick`
+- Cloudflare Tunnel: `brew install cloudflare/cloudflare/cloudflared`
+
+## 1 Clone and install
 
 ```bash
 git clone https://github.com/RaineCuenza/xentrocine.git
 cd xentrocine
-```
-
-### 2. Install PHP Dependencies
-
-```bash
 composer install
-```
-
-### 3. Install Node.js Dependencies
-
-```bash
 npm install
-```
-
-### 4. Environment Configuration
-
-Copy the example environment file and configure it:
-
-```bash
 cp .env.example .env
+php artisan key:generate
 ```
 
-Edit the `.env` file and set your database credentials:
+## 2 Configure .env
+
+Set your database and session settings. Example:
 
 ```env
+APP_ENV=local
+APP_URL=http://localhost
+
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=xentrocine_db
 DB_USERNAME=root
-DB_PASSWORD=your_password
+DB_PASSWORD=
 
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
+SESSION_SECURE_COOKIE=false
+SESSION_SAME_SITE=lax
 ```
 
-### 5. Generate Application Key
-
-```bash
-php artisan key:generate
-```
-
-### 6. Create Database
-
-Create a MySQL database named `xentrocine_db`:
-
-```sql
-CREATE DATABASE xentrocine_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Or using MySQL command line:
+Create the database and run migrations + seeders:
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE xentrocine_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+php artisan migrate:fresh --seed
 ```
 
-### 7. Run Database Migrations
+## 3 Build assets
 
-```bash
-php artisan migrate
-```
-
-This will create all necessary tables:
-- users
-- movies
-- showtimes
-- bookings
-- booking_items
-- sessions (for authentication)
-- cache, jobs, password_resets
-
-### 8. Seed the Database (Optional)
-
-To populate the database with sample data:
-
-```bash
-php artisan db:seed
-```
-
-This will create:
-- Sample admin and client users
-- Sample movies with posters
-- Sample showtimes
-
-### 9. Build Frontend Assets
-
-For development with hot reload:
+For desktop development with hot reload (HMR):
 
 ```bash
 npm run dev
 ```
 
-For production (minified and optimized):
+For HTTPS/mobile via Cloudflare, disable hot and use built assets:
 
 ```bash
-npm run build
+npm run dev:cf   # turns off public/hot and runs build --watch
 ```
 
-### 10. Start the Development Server
+## 4 Run the app
+
+Start Laravel:
 
 ```bash
 php artisan serve
 ```
 
-The application will be available at: `http://localhost:8000`
+Open http://127.0.0.1:8000 on your desktop.
 
-## 📁 Project Structure
+## 5 Mobile testing through Cloudflare Tunnel
 
-```
-xentrocine/
-├── app/
-│   ├── Http/Controllers/    # Application controllers
-│   └── Models/               # Eloquent models
-├── database/
-│   ├── migrations/           # Database migrations
-│   └── seeders/              # Database seeders
-├── public/                   # Web root (compiled assets)
-├── resources/
-│   ├── css/                  # Source CSS files
-│   ├── js/                   # Source JavaScript files
-│   └── views/                # Blade templates
-└── routes/
-    └── web.php               # Application routes
-```
-
-## 🔐 Default Credentials (After Seeding)
-
-**Admin Account:**
-- Email: `admin@xentrocine.com`
-- Password: `admin123`
-
-**Client Account:**
-- Email: `client@xentrocine.com`
-- Password: `client123`
-
-## 🔧 Common Commands
+Start a tunnel that points to your Laravel server:
 
 ```bash
-# Clear application cache
-php artisan cache:clear
+cloudflared tunnel --url http://localhost:8000
+```
 
-# Clear config cache
+Copy the generated https://<random>.trycloudflare.com URL and set it in your `.env`:
+
+```env
+APP_URL=https://<your-tunnel>.trycloudflare.com
+```
+
+Then apply and restart:
+
+```bash
 php artisan config:clear
+php artisan cache:clear
+```
 
-# Clear route cache
-php artisan route:clear
+Open the Cloudflare URL on your phone. Because we’re serving built assets (npm run dev:cf), there’s no mixed‑content issue and CORS is already configured to allow `*.trycloudflare.com`.
 
-# Clear view cache
-php artisan view:clear
+Tips
+- If you switch back to desktop HMR: stop `npm run dev:cf` and run `npm run dev`.
+- If you restart cloudflared, the URL changes—update `APP_URL` and clear config again.
 
-# Run migrations
-php artisan migrate
+## Staff portal and check‑in
 
-# Rollback migrations
-php artisan migrate:rollback
+Open /staff, log in as staff or admin, and scan QR codes.
 
-# Fresh migration (drop all tables and re-migrate)
+- Paid (GCash): the first scan shows details and a Verify Entry button. Tap to check in.
+- Pending (cash): tap Accept Cash & Check‑in to mark Paid and check in atomically.
+- The scanner now prevents duplicate reads by pausing the camera during processing and letting you tap Scan Next to resume.
+
+## Default accounts (after seeding)
+
+- Admin: `admin@admin` / `@dmin_123`
+- Staff: `staff@staff` / `St@ff_123`
+- Client: `client@client` / `P@ssword_123`
+
+## Useful commands
+
+```bash
+# Full reset with demo data
 php artisan migrate:fresh --seed
+
+# Clear caches
+php artisan opt:clear
+
+# Run tests
+composer test
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-**Issue: "Permission denied" errors**
-```bash
-# Give write permissions to storage and cache folders
-chmod -R 775 storage bootstrap/cache
-```
+- Blank/unstyled page on mobile: ensure `npm run dev:cf` is running and there is no `public/hot` file.
+- CORS errors in console: confirm APP_URL is your Cloudflare URL, then `php artisan config:clear`.
+- Camera doesn’t start on phone: grant camera permission in browser settings; Chrome/Firefox recommended.
+- “Ticket already checked in”: the system is idempotent—re‑scan of a checked‑in ticket returns 409 without changing data.
 
-**Issue: Assets not loading**
-```bash
-# Make sure you've built the assets
-npm run build
-```
+**NOTES**
+In vite.config.js:
+server: {
+        host: true,  // Allow external access
+        port: 5173,
+        strictPort: true,
+        cors: {
+            origin: '*',  // Allow all origins (for Cloudflare tunnel)
+            credentials: true,
+        },
+        hmr: {
+            host: 'localhost',  // HMR should connect to localhost
+        },
+    },
 
-**Issue: Database connection failed**
-- Verify your `.env` database credentials
-- Ensure MySQL service is running
-- Check if the database exists
-
+How to run:
+php artisan serve
+npm run dev:cf
+cloudflared tunnel --url http://localhost:8000
+Update .env APP_URL

@@ -26,7 +26,7 @@ XentroCine is a cinema booking system migrated from Node.js/Express to **Laravel
 1. Customer books online → Backend generates `et_qr_token` (40-char random string with "et_" prefix)
 2. `BookingConfirmation` mailable sends email with embedded QR code (base64 PNG via `simplesoftwareio/simple-qrcode`)
 3. Customer arrives → Staff scans QR via `/staff` portal (uses `html5-qrcode` for browser camera access)
-4. **Paid bookings**: Instant check-in (sets `entry_scanned_at`, `checked_in_by`)
+4. **Paid bookings (digital/GCash)**: First scan shows details; staff must tap "Verify Entry" to check-in (explicit confirmation)
 5. **Pending (cash) bookings**: Staff clicks "Accept Cash & Check-in" → atomically updates `status='Paid'` + checks in
 
 **Key Fields** (`bookings` table):
@@ -36,7 +36,7 @@ XentroCine is a cinema booking system migrated from Node.js/Express to **Laravel
 - `checked_in_by`: Foreign key to `users.id` (staff/admin who scanned)
 - `status`: 'Pending' | 'Paid' | 'Cancelled'
 
-**Idempotency**: Re-scanning returns 409 "Already checked in" without modifying data.
+**Idempotency**: Re-scanning returns 409 "Already checked in" without modifying data. The scanner pauses on decode to prevent duplicate reads; staff resumes with a "Scan Next" action.
 
 ### Custom ID Generation Pattern
 All primary entities use **string IDs with auto-generation**:
@@ -76,9 +76,38 @@ composer test  # Clears config cache and runs PHPUnit
 ```
 
 ### Asset Compilation
-- **Dev**: `npm run dev` (Vite hot reload on port 5173)
+- **Dev (desktop/HMR)**: `npm run dev` (Vite hot reload on port 5173)
+- **Cloudflare/mobile (no HMR)**: `npm run dev:cf` (disables `public/hot`, builds in watch mode)
 - **Prod**: `npm run build` (outputs to `public/build/`)
 - **Vite config**: Only compiles `resources/css/styles.css` and `resources/js/app-api.js`
+
+### Cloudflare Tunnel (Mobile testing over HTTPS)
+We standardize on Cloudflare for mobile testing.
+
+```bash
+# Start Laravel
+php artisan serve
+
+# Build assets without HMR
+npm run dev:cf
+
+# Expose with a tunnel (copy the URL)
+cloudflared tunnel --url http://localhost:8000
+```
+
+Set the generated URL in `.env` and clear config:
+
+```env
+APP_URL=https://<your-tunnel>.trycloudflare.com
+```
+
+```bash
+php artisan config:clear
+```
+
+Notes:
+- Our CORS config allows `*.trycloudflare.com` and also uses `APP_URL`.
+- Avoid Vite hot while using Cloudflare; use `npm run dev:cf`.
 
 ## Mac Development Setup (One-Time)
 
@@ -375,6 +404,7 @@ Sample data: 3 movies (Star Quest [PG], The Last Laugh [R-13], Hidden Tide [G]) 
 3. **Blade Layouts**: All views extend `layouts/app.blade.php` which includes nav, auth state, and Vite directives.
 4. **Password Hashing**: User model auto-hashes via `'password' => 'hashed'` cast - no manual `Hash::make()` needed.
 5. **Eloquent Relationships**: Use string foreign keys (`'user_id', 'id'`) explicitly when non-standard.
+6. **Cloudflare Tunnels**: When exposing to mobile, do not use Vite hot (no `public/hot`). Run `npm run dev:cf` and set `APP_URL` to your tunnel URL.
 
 ## File Locations for Common Tasks
 
