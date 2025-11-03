@@ -6,7 +6,7 @@
         "build": "vite build",
         "dev": "vite",
         "build:watch": "vite build --watch",
-        "hot:off": "powershell -Command \"if (Test-Path .\\public\\hot) { Remove-Item .\\public\\hot }\"",
+        "hot:off": "node -e \"try{require('fs').rmSync('public/hot',{force:true,recursive:true});}catch(e){}\"",
         "dev:cf": "npm run hot:off && npm run build:watch"
     },
     "devDependencies": {
