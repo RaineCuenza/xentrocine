@@ -49,7 +49,7 @@ class XentroCineSeeder extends Seeder
             'id' => 'u_staff001',
             'name' => 'Maria Santos',
             'email' => 'staff@staff',
-            'password' => 'St@ff_123',
+            'password' => 'P@ssword_123',
             'role' => 'staff',
             'email_verified_at' => now(), // Mark as verified for seeded users
         ]);
@@ -79,6 +79,23 @@ class XentroCineSeeder extends Seeder
             'audience' => 'G',
         ]);
 
+          $movie4 = Movie::create([
+            'id' => 'mv400',
+            'title' => 'Hidden Tide',
+            'price' => 350.00,
+            'poster' => '/images/image1.jpeg',
+            'audience' => 'G',
+        ]);
+
+        $movie5 = Movie::create([
+            'id' => 'mv500',
+            'title' => 'Hidden Tide',
+            'price' => 350.00,
+            'poster' => '/images/image2.jpg',
+            'audience' => 'G',
+        ]);
+        
+
         // Insert showtimes for Star Quest
         Showtime::create(['movie_id' => 'mv100', 'showtime' => '13:00:00']);
         Showtime::create(['movie_id' => 'mv100', 'showtime' => '15:30:00']);
@@ -97,6 +114,18 @@ class XentroCineSeeder extends Seeder
         Showtime::create(['movie_id' => 'mv300', 'showtime' => '13:45:00']);
         Showtime::create(['movie_id' => 'mv300', 'showtime' => '16:15:00']);
         Showtime::create(['movie_id' => 'mv300', 'showtime' => '18:45:00']);
+
+         // Insert showtimes for Hidden Tide
+        Showtime::create(['movie_id' => 'mv400', 'showtime' => '11:00:00']);
+        Showtime::create(['movie_id' => 'mv400', 'showtime' => '13:45:00']);
+        Showtime::create(['movie_id' => 'mv400', 'showtime' => '16:15:00']);
+        Showtime::create(['movie_id' => 'mv400', 'showtime' => '18:45:00']);
+
+         // Insert showtimes for Hidden Tide
+        Showtime::create(['movie_id' => 'mv500', 'showtime' => '11:00:00']);
+        Showtime::create(['movie_id' => 'mv500', 'showtime' => '13:45:00']);
+        Showtime::create(['movie_id' => 'mv500', 'showtime' => '16:15:00']);
+        Showtime::create(['movie_id' => 'mv500', 'showtime' => '18:45:00']);
 
         $this->command->info('XentroCine seed data created successfully!');
     }

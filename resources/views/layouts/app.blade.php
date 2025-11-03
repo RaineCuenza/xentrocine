@@ -39,13 +39,13 @@
             </a>
         @endauth
         
-        <button id="mobileMenuToggle" class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 6h18M3 12h18M3 18h18" />
-            </svg>
+        <button id="mobileMenuToggle" class="mobile-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="primaryNav">
+            <span class="mobile-toggle__bar"></span>
+            <span class="mobile-toggle__bar"></span>
+            <span class="mobile-toggle__bar"></span>
         </button>
         
-        <nav class="nav">
+        <nav id="primaryNav" class="nav">
             <a class="nav__link @if (Route::currentRouteName() == 'home') nav__link--active @endif"
                 href="{{ route('home') }}">Home</a>
             @guest
@@ -99,20 +99,50 @@
         const nav = document.querySelector('.nav');
         
         if(mobileToggle && nav){
+            const closeMenu = () => {
+                siteHeader.classList.remove('menu-open');
+                mobileToggle.classList.remove('mobile-toggle--open');
+                mobileToggle.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            };
+
+            const openMenu = () => {
+                siteHeader.classList.add('menu-open');
+                mobileToggle.classList.add('mobile-toggle--open');
+                mobileToggle.setAttribute('aria-expanded', 'true');
+                document.body.style.overflow = 'hidden';
+            };
+
             mobileToggle.addEventListener('click', () => {
-                const isOpen = siteHeader.classList.toggle('menu-open');
-                mobileToggle.setAttribute('aria-expanded', isOpen);
-                // Prevent body scroll when menu is open
-                document.body.style.overflow = isOpen ? 'hidden' : '';
+                const isOpen = siteHeader.classList.contains('menu-open');
+                if(isOpen){
+                    closeMenu();
+                }else{
+                    openMenu();
+                }
             });
             
             // Close nav when clicking backdrop or close button
             nav.addEventListener('click', (e) => {
                 // Close if clicking on nav itself (backdrop via ::after) or the X (::before)
                 if(e.target === nav || e.target.classList.contains('nav')){
-                    siteHeader.classList.remove('menu-open');
-                    mobileToggle.setAttribute('aria-expanded', 'false');
-                    document.body.style.overflow = '';
+                    closeMenu();
+                }
+            });
+
+            // Close after selecting a link on mobile
+            nav.querySelectorAll('.nav__link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if(window.innerWidth <= 720 && siteHeader.classList.contains('menu-open')){
+                        closeMenu();
+                    }
+                });
+            });
+
+            // Close on Escape
+            document.addEventListener('keydown', (event) => {
+                if(event.key === 'Escape' && siteHeader.classList.contains('menu-open')){
+                    closeMenu();
                 }
             });
         }

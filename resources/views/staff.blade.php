@@ -71,7 +71,6 @@
                         <select id="walkinCinema">
                             <option value="Cinema 1">Cinema 1</option>
                             <option value="Cinema 2">Cinema 2</option>
-                            <option value="Cinema 3">Cinema 3</option>
                         </select>
                     </div>
                 </div>

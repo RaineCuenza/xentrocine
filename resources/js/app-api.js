@@ -165,22 +165,6 @@ async function initAdminPage() {
     });
   }
 
-  // Cancel booking
-  if (adminBookingList) {
-    adminBookingList.addEventListener('click', async (e) => {
-      if (e.target.classList.contains('booking-item__cancel')) {
-        const bookingId = e.target.getAttribute('data-id');
-        if (!confirm('Cancel this booking?')) return;
-
-        try {
-          await apiCall(`/bookings/${bookingId}/cancel`, { method: 'PUT' });
-          window.location.reload();
-        } catch (err) {
-          alert(err.message || 'Failed to cancel booking');
-        }
-      }
-    });
-  }
 }
 
 // ---------- Staff Page (QR Scanner + Walk-in Booking) ----------
