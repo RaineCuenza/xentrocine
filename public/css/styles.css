@@ -389,6 +389,7 @@ select:focus-visible,input:focus-visible{outline:3px solid #3b82f6; outline-offs
 
 @media (max-width:1024px){
   .grid-4{grid-template-columns:repeat(3,1fr)}
+  .admin-kpis{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:720px){
   .hide-mobile{display:none}
