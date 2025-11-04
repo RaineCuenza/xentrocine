@@ -84,7 +84,11 @@
           </label>
           <label class="admin-field admin-field--compact">
             <span class="admin-field__label">Price (₱)</span>
-            <input name="price" type="number" min="100" step="0.01" placeholder="350" required/>
+            <div class="admin-price-control" role="group" aria-label="Adjust ticket price">
+              <button type="button" class="admin-price-btn" data-dir="down" aria-label="Decrease price"><span aria-hidden="true">−</span></button>
+              <input id="priceInput" name="price" type="number" min="100" step="10" value="{{ old('price', 350) }}" placeholder="350" required/>
+              <button type="button" class="admin-price-btn" data-dir="up" aria-label="Increase price"><span aria-hidden="true">+</span></button>
+            </div>
           </label>
           <label class="admin-field">
             <span class="admin-field__label">Audience</span>
@@ -182,7 +186,33 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const showtimeInput = document.querySelector('input[name="times"]');
-            if (!showtimeInput || typeof flatpickr === 'undefined') return;
+            const priceInput = document.getElementById('priceInput');
+            const priceButtons = document.querySelectorAll('.admin-price-btn');
+
+            function adjustPrice(button){
+                if(!priceInput) return;
+                const direction = button.getAttribute('data-dir') === 'up' ? 1 : -1;
+                const step = Number(priceInput.step || 10);
+                const min = Number(priceInput.min || 0);
+                const max = priceInput.max ? Number(priceInput.max) : null;
+                const current = Number(priceInput.value || min || 0);
+                let next = current + (direction * step);
+                if(!isFinite(next)) next = min || 0;
+                if(max !== null && isFinite(max)) next = Math.min(max, next);
+                next = Math.max(min, next);
+                const hasDecimals = step % 1 !== 0;
+                priceInput.value = hasDecimals ? next.toFixed(2) : String(Math.round(next));
+                priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+                priceInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            priceButtons.forEach(btn => {
+                btn.addEventListener('click', () => adjustPrice(btn));
+            });
+
+            if (!showtimeInput || typeof flatpickr === 'undefined') {
+                return;
+            }
 
             const normalized = showtimeInput.value
                 .replace(/[\u2012-\u2015]/g, '-') // normalize dash variants
@@ -248,6 +278,7 @@
                     picker.open();
                 }
             });
+
         });
     </script>
 @endpush

@@ -64,9 +64,18 @@
           </label>
         </div>
 
-        <div class="pax-input">
-          <label for="paxInput">Number of Pax</label>
-          <input id="paxInput" name="quantity" type="number" min="1" max="20" value="1" style="width: 120px;">
+        <div class="pax-field">
+          <label class="pax-field__label" for="paxInput">Number of Pax</label>
+          <div class="pax-field__control" role="group" aria-label="Adjust number of seats">
+            <button type="button" class="pax-btn" data-dir="down" aria-label="Decrease pax">
+              <span aria-hidden="true">−</span>
+            </button>
+            <input id="paxInput" class="pax-field__input" name="quantity" type="number" inputmode="numeric" min="1" max="20" value="1" />
+            <button type="button" class="pax-btn" data-dir="up" aria-label="Increase pax">
+              <span aria-hidden="true">+</span>
+            </button>
+          </div>
+          <small class="booking-field__hint">Up to 20 seats per reservation.</small>
         </div>
 
         @if(isset($selectedMovie))
@@ -247,17 +256,41 @@
       }
 
       function recalc() {
-        const qty = Math.max(1, parseInt(paxInput?.value || '1', 10));
-        const price = numeric(seatPriceEl?.textContent || seatPriceInput?.value || 0);
-        selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
-        const total = (price * qty) || 0;
-        totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
+        const paxValue = paxInput && paxInput.value ? paxInput.value : '1';
+        const qty = Math.max(1, parseInt(paxValue, 10));
+        const seatText = seatPriceEl && typeof seatPriceEl.textContent === 'string' ? seatPriceEl.textContent : '';
+        const seatHidden = seatPriceInput && seatPriceInput.value ? seatPriceInput.value : '';
+        const price = numeric(seatText || seatHidden || 0);
 
-        // Enable Add to cart only when fields are selected and user is authenticated
+        if (selectedSeatsEl) {
+          selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
+        }
+
+        const total = price * qty;
+        if (totalPriceEl) {
+          totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
+        }
+
         if (addBtn) {
           const authed = {{ Auth::check() ? 'true' : 'false' }};
           addBtn.disabled = !(allSelected() && price > 0 && authed);
         }
+      }
+
+      if (paxInput) {
+        const paxButtons = document.querySelectorAll('.pax-btn');
+        paxButtons.forEach(function(button) {
+          button.addEventListener('click', function() {
+            const direction = button.getAttribute('data-dir') === 'up' ? 1 : -1;
+            const min = Number(paxInput.min || 1);
+            const max = Number(paxInput.max || 20);
+            const current = Number(paxInput.value || min);
+            const next = Math.max(min, Math.min(max, current + direction));
+            paxInput.value = next;
+            paxInput.dispatchEvent(new Event('input', { bubbles: true }));
+            paxInput.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        });
       }
 
       // When movie changes, navigate with ?movie=<id> to fetch showtimes server-side

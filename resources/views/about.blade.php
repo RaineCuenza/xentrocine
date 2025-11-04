@@ -7,29 +7,30 @@
 <section class="about-intro">
   <h1>About XentroCine</h1>
   <p class="about-intro__lead">
-  We’re a neighbourhood-first cinema offering curated films and a seamless booking experience—reserve tickets easily from home or join us for a spontaneous movie night.  </p>
+    We are a neighbourhood-first cinema offering curated films and a seamless reservation experience—book seats from your sofa or walk in for a spontaneous movie night.
+  </p>
 </section>
 
 <section class="about-panels">
   <article class="about-panel">
     <h2>Why guests choose us</h2>
     <ul class="ticks">
-      <li>Booking is easy—log in, choose how many tickets, and pay</li>
-      <li>Flexible payments: Cash on-site or GCash</li>
-      <li>Auto-cancel unpaid cash reservations to free up seats</li>
-      <li>Paperless QR entry for faster cinema access</li>
+      <li>Fast booking—log in, pay, and you’re done</li>
+      <li>Flexible payments: cash at the counter or GCash online</li>
+      <li>Auto-cancel unpaid reservations to free up seats for others</li>
+      <li>Paperless QR entry for quicker cinema access</li>
     </ul>
   </article>
   <article class="about-panel">
     <h2>Made for teams &amp; families</h2>
     <p>
-      Our dashboard lets staff monitor bookings, manage line-ups, and scan QR passes in real time. Families can sync seats across multiple halls, while corporate partners enjoy consolidated billing and private screenings.
+      Staff monitor bookings, manage line-ups, and scan QR passes in real time. Families can sync seats across multiple halls, while corporate partners enjoy consolidated billing and private screenings.
     </p>
     <div class="about-pill-list">
       <span class="pill">Group reservations</span>
       <span class="pill">Walk-in counter support</span>
       <span class="pill">Discount tiers</span>
-      <span class="pill">Real-time booking updates </span>
+      <span class="pill">Real-time booking updates</span>
     </div>
   </article>
 </section>
@@ -37,15 +38,43 @@
 <section class="about-grid">
   <article class="about-card">
     <h3>Cinema 1 — Premiere</h3>
-    <p>Dolby Atmos surround sound with tiered stadium seating and wall-to-wall projection for blockbuster nights.</p>
+    <p>Dolby Atmos surround with tiered stadium seating and wall-to-wall projection for blockbuster nights.</p>
     <ul class="about-list">
       <li>225 luxury seats</li>
-      <li>09:00 PM – 09:00 PM daily</li>
+      <li>09:00 AM – 09:00 PM daily</li>
       <li>Accessible seating rows A–B</li>
     </ul>
   </article>
+  <article class="about-card">
+    <h3>Cinema 2 — Luxe</h3>
+    <p>Recliner pods, in-seat dining, and festival picks designed for boutique viewing.</p>
+    <ul class="about-list">
+      <li>88 reclining lounge pods</li>
+      <li>Signature desserts &amp; craft coffee bar</li>
+      <li>Private screening packages</li>
+    </ul>
+  </article>
+</section>
 
-  <section class="about-panel about-panel--contact">
+<section class="about-story">
+  <h2>How we run XentroCine</h2>
+  <ol class="about-timeline">
+    <li>
+      <span class="about-timeline__label">Morning</span>
+      <p>Programming team refreshes listings and opens same-day walk-in slots.</p>
+    </li>
+    <li>
+      <span class="about-timeline__label">Afternoon</span>
+      <p>Prints QR backups, and coordinates with corporate block screenings.</p>
+    </li>
+    <li>
+      <span class="about-timeline__label">Evening</span>
+      <p>Ushers scan digital passes while projectionists monitor sound and picture calibrations for every show.</p>
+    </li>
+  </ol>
+</section>
+
+<section class="about-panel about-panel--contact">
   <h2>Stay in touch</h2>
   <div class="about-contact">
     <div>
@@ -59,10 +88,10 @@
     </div>
     <div>
       <strong>Operating hours</strong>
-      <span>Ticket booth opens 09:00 AM daily</span>
+      <span>Ticket booth opens 90:00 AM daily</span>
       <span>Last full show 09:00 PM</span>
-    </div>  
+    </div>
   </div>
-  <p class="about-panel__footnote">Looking to host a premiere or private block screening? Talk to our events team for bespoke packages.</p>
+  <p class="about-panel__footnote">Planning a premiere or private block screening? Our events team can customise packages to suit your audience.</p>
 </section>
 @endsection
