@@ -125,12 +125,64 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('admin')->with('message', 'Movie added');
     });
 
-    Route::post('/admin/movies/{id}/delete', function ($id) {
+    Route::post('/admin/movies/{id}/status', function (\Illuminate\Http\Request $request, $id) {
         if (!Auth::check() || Auth::user()->role !== 'admin') {
-            return redirect()->route('home')->with('error', 'Unauthorized');
+            $error = ['error' => 'Unauthorized'];
+            return $request->expectsJson()
+                ? response()->json($error, 403)
+                : redirect()->route('home')->with('error', 'Unauthorized');
         }
         $movie = App\Models\Movie::find($id);
-        if ($movie) $movie->delete();
+        if (!$movie) {
+            $error = ['error' => 'Movie not found'];
+            return $request->expectsJson()
+                ? response()->json($error, 404)
+                : redirect()->route('admin')->with('error', 'Movie not found');
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:active,inactive',
+        ]);
+
+        $movie->update([
+            'is_active' => $validated['status'] === 'active',
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => $movie->is_active,
+                'message' => 'Movie status updated',
+            ]);
+        }
+
+        return redirect()->route('admin')->with('message', 'Movie status updated');
+    });
+
+    Route::delete('/admin/movies/{id}', function (\Illuminate\Http\Request $request, $id) {
+        if (!Auth::check() || Auth::user()->role !== 'admin') {
+            $error = ['error' => 'Unauthorized'];
+            return $request->expectsJson()
+                ? response()->json($error, 403)
+                : redirect()->route('home')->with('error', 'Unauthorized');
+        }
+        $movie = App\Models\Movie::find($id);
+        if (!$movie) {
+            $error = ['error' => 'Movie not found'];
+            return $request->expectsJson()
+                ? response()->json($error, 404)
+                : redirect()->route('admin')->with('error', 'Movie not found');
+        }
+
+        $movie->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Movie deleted',
+            ]);
+        }
+
         return redirect()->route('admin')->with('message', 'Movie deleted');
     });
 

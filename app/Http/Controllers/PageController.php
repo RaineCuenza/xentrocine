@@ -23,6 +23,7 @@ class PageController extends Controller
     public function index()
     {
         $movies = Movie::with('showtimes')
+            ->where('is_active', true)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -35,6 +36,7 @@ class PageController extends Controller
     public function booking(Request $request)
     {
         $movies = Movie::with('showtimes')
+            ->where('is_active', true)
             ->orderBy('title')
             ->get();
 
@@ -73,6 +75,7 @@ class PageController extends Controller
 
         $movies = Movie::with('showtimes')
             ->withCount('bookingItems')
+            ->orderByDesc('is_active')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -82,7 +85,7 @@ class PageController extends Controller
 
         // Calculate KPIs
         $kpis = [
-            'movies' => Movie::count(),
+            'movies' => Movie::where('is_active', true)->count(),
             'bookings' => Booking::count(),
             'paid' => Booking::where('status', 'Paid')->count(),
             'pending' => Booking::where('status', 'Pending')->count(),
@@ -103,6 +106,7 @@ class PageController extends Controller
         }
 
         $movies = Movie::with('showtimes')
+            ->where('is_active', true)
             ->orderBy('title')
             ->get();
 

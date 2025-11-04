@@ -26,6 +26,7 @@ class MovieController extends Controller
                           });
                     }
                 ])
+                ->where('is_active', true)
                 ->orderBy('title')
                 ->get();
 
@@ -37,6 +38,7 @@ class MovieController extends Controller
                     'poster' => $movie->poster,
                     'audience' => $movie->audience,
                     'viewers_total' => (int) ($movie->viewers_total ?? 0),
+                    'is_active' => (bool) $movie->is_active,
                     'showtimes' => $movie->showtimes->map(function ($showtime) {
                         return date('H:i', strtotime($showtime->showtime));
                     })->toArray(),
@@ -69,7 +71,7 @@ class MovieController extends Controller
                     }
                 ])->find($id);
 
-            if (!$movie) {
+            if (!$movie || !$movie->is_active) {
                 return response()->json([
                     'error' => 'Movie not found',
                 ], 404);
@@ -82,6 +84,7 @@ class MovieController extends Controller
                 'poster' => $movie->poster,
                 'audience' => $movie->audience,
                 'viewers_total' => (int) ($movie->viewers_total ?? 0),
+                'is_active' => (bool) $movie->is_active,
                 'showtimes' => $movie->showtimes->map(function ($showtime) {
                     return date('H:i', strtotime($showtime->showtime));
                 })->toArray(),
@@ -121,6 +124,7 @@ class MovieController extends Controller
                 'price' => $validated['price'],
                 'poster' => $validated['poster'] ?? null,
                 'audience' => $validated['audience'],
+                'is_active' => true,
             ]);
 
             // Insert showtimes
@@ -134,6 +138,7 @@ class MovieController extends Controller
             return response()->json([
                 'success' => true,
                 'id' => $movie->id,
+                'is_active' => true,
                 'message' => 'Movie created successfully',
             ]);
         } catch (\Exception $e) {
@@ -170,14 +175,21 @@ class MovieController extends Controller
                 'audience' => 'required|in:G,PG,R-13,R-16,R-18',
                 'showtimes' => 'sometimes|array',
                 'showtimes.*' => 'string',
+                'is_active' => 'sometimes|boolean',
             ]);
 
-            $movie->update([
+            $updateData = [
                 'title' => trim($validated['title']),
                 'price' => $validated['price'],
                 'poster' => $validated['poster'] ?? null,
                 'audience' => $validated['audience'],
-            ]);
+            ];
+
+            if (array_key_exists('is_active', $validated)) {
+                $updateData['is_active'] = (bool) $validated['is_active'];
+            }
+
+            $movie->update($updateData);
 
             // Update showtimes if provided
             if (isset($validated['showtimes'])) {
@@ -193,9 +205,24 @@ class MovieController extends Controller
                 }
             }
 
+            $movie->load(['showtimes' => function ($query) {
+                $query->orderBy('showtime');
+            }]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Movie updated successfully',
+                'movie' => [
+                    'id' => $movie->id,
+                    'title' => $movie->title,
+                    'price' => (float) $movie->price,
+                    'poster' => $movie->poster,
+                    'audience' => $movie->audience,
+                    'is_active' => (bool) $movie->is_active,
+                    'showtimes' => $movie->showtimes->map(function ($showtime) {
+                        return date('H:i', strtotime($showtime->showtime));
+                    })->values()->toArray(),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -224,11 +251,18 @@ class MovieController extends Controller
                 ], 404);
             }
 
-            $movie->delete();
+            if (!$movie->is_active) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Movie already inactive',
+                ]);
+            }
+
+            $movie->update(['is_active' => false]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Movie deleted successfully',
+                'message' => 'Movie marked as inactive',
             ]);
         } catch (\Exception $e) {
             return response()->json([

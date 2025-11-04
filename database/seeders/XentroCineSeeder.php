@@ -61,6 +61,7 @@ class XentroCineSeeder extends Seeder
             'price' => 300.00,
             'poster' => '/images/starquest.jpg',
             'audience' => 'PG',
+            'is_active' => true,
         ]);
 
         $movie2 = Movie::create([
@@ -69,6 +70,7 @@ class XentroCineSeeder extends Seeder
             'price' => 320.00,
             'poster' => '/images/thelastlaugh.jpg',
             'audience' => 'R-13',
+            'is_active' => true,
         ]);
 
         $movie3 = Movie::create([
@@ -77,6 +79,7 @@ class XentroCineSeeder extends Seeder
             'price' => 350.00,
             'poster' => '/images/hiddentide.jpg',
             'audience' => 'G',
+            'is_active' => true,
         ]);
 
           $movie4 = Movie::create([
@@ -85,6 +88,7 @@ class XentroCineSeeder extends Seeder
             'price' => 350.00,
             'poster' => '/images/image1.jpeg',
             'audience' => 'G',
+            'is_active' => true,
         ]);
 
         $movie5 = Movie::create([
@@ -93,6 +97,7 @@ class XentroCineSeeder extends Seeder
             'price' => 350.00,
             'poster' => '/images/image2.jpg',
             'audience' => 'G',
+            'is_active' => true,
         ]);
         
 

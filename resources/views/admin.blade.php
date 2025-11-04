@@ -72,7 +72,7 @@
         <h2>Manage Movies</h2>
         <p class="admin-panel__hint">Create, update, or retire titles across your catalogue.</p>
       </div>
-      <span class="admin-panel__tag">{{ $movies->count() }} active</span>
+      <span class="admin-panel__tag"><span id="adminActiveCount">{{ $movies->where('is_active', true)->count() }}</span> active</span>
     </header>
     <div class="admin-panel__body">
       <form action="{{ url('/admin/movies') }}" method="POST" class="admin-form" novalidate>
@@ -84,10 +84,10 @@
           </label>
           <label class="admin-field admin-field--compact">
             <span class="admin-field__label">Price (₱)</span>
-            <div class="admin-price-control" role="group" aria-label="Adjust ticket price">
-              <button type="button" class="admin-price-btn" data-dir="down" aria-label="Decrease price"><span aria-hidden="true">−</span></button>
-              <input id="priceInput" name="price" type="number" min="100" step="10" value="{{ old('price', 350) }}" placeholder="350" required/>
-              <button type="button" class="admin-price-btn" data-dir="up" aria-label="Increase price"><span aria-hidden="true">+</span></button>
+            <div class="admin-price-control" data-price-control role="group" aria-label="Adjust ticket price">
+              <button type="button" class="admin-price-btn" data-price-dir="down" aria-label="Decrease price"><span aria-hidden="true">−</span></button>
+              <input name="price" type="number" min="100" step="10" value="{{ old('price', 350) }}" placeholder="350" required data-price-input/>
+              <button type="button" class="admin-price-btn" data-price-dir="up" aria-label="Increase price"><span aria-hidden="true">+</span></button>
             </div>
           </label>
           <label class="admin-field">
@@ -106,7 +106,7 @@
           </label>
           <div class="admin-field admin-field--wide">
             <span class="admin-field__label">Showtimes</span>
-            <div class="showtime-builder">
+            <div class="showtime-builder" data-showtime-builder data-builder-context="create">
               <div class="showtime-presets">
                 <button type="button" class="preset-btn" data-times="09:00,12:00">Morning</button>
                 <button type="button" class="preset-btn" data-times="13:00,15:30">Matinee</button>
@@ -114,11 +114,11 @@
                 <button type="button" class="preset-btn" data-times="22:00,23:30">Late Night</button>
               </div>
               <div class="showtime-input-group">
-                <input type="text" id="customTimeInput" placeholder="Add custom (e.g., 3:00 PM or 15:00)" />
-                <button type="button" id="addTimeBtn" class="btn btn--sm btn--ghost">+ Add</button>
+                <input type="text" placeholder="Add custom (e.g., 3:00 PM or 15:00)" data-builder-input />
+                <button type="button" class="btn btn--sm btn--ghost" data-builder-add>+ Add</button>
               </div>
-              <div id="showtimeChips" class="showtime-chips"></div>
-              <input name="times" type="hidden" id="hiddenTimesInput" required/>
+              <div class="showtime-chips" data-builder-chips></div>
+              <input name="times" type="hidden" data-builder-hidden required/>
               <p class="showtime-hint">Click presets or add custom times. Times will auto-sort.</p>
             </div>
           </div>
@@ -130,17 +130,103 @@
       
       <ul id="adminMovieList" class="admin-collection">
         @forelse($movies as $movie)
-          <li class="admin-collection__item">
-            <div class="admin-collection__meta">
-              <h3 class="admin-collection__title">{{ $movie->title }}</h3>
-              <p class="admin-collection__subtitle">
-                ₱{{ number_format($movie->price, 2) }} • {{ $movie->audience }} • {{ $movie->booking_items_count ?? 0 }} bookings
-              </p>
+          @php
+            $rawTimes = $movie->showtimes->pluck('showtime')
+              ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
+              ->unique()
+              ->sort()
+              ->values();
+            $showtimeValues = $rawTimes->toArray();
+            $showtimeDisplay = $rawTimes->map(fn($time) => \Carbon\Carbon::createFromFormat('H:i', $time)->format('g:i A'))->toArray();
+          @endphp
+          <li class="admin-collection__item {{ $movie->is_active ? '' : 'admin-collection__item--inactive' }}"
+              data-movie-id="{{ $movie->id }}"
+              data-title="{{ $movie->title }}"
+              data-price="{{ $movie->price }}"
+              data-audience="{{ $movie->audience }}"
+              data-poster="{{ $movie->poster }}"
+              data-bookings="{{ $movie->booking_items_count ?? 0 }}"
+              data-is-active="{{ $movie->is_active ? '1' : '0' }}"
+              data-showtimes='@json($showtimeValues)'>
+            <div class="admin-movie__header">
+              <div>
+                <h3 class="admin-collection__title">{{ $movie->title }}</h3>
+                <p class="admin-collection__subtitle">
+                  ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> • 
+                  <span class="admin-movie__audience">{{ $movie->audience }}</span> • 
+                  <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
+                </p>
+              </div>
+              <span class="badge {{ $movie->is_active ? 'badge--active' : 'badge--inactive' }} admin-movie__status">
+                {{ $movie->is_active ? 'Active' : 'Inactive' }}
+              </span>
             </div>
-            <form action="{{ url('/admin/movies/'.$movie->id.'/delete') }}" method="POST" class="admin-collection__action">
-              @csrf
-              <button class="btn btn--ghost btn--sm" type="submit">Delete</button>
-            </form>
+            <div class="admin-movie__showtimes">
+              @if(count($showtimeDisplay))
+                @foreach($showtimeDisplay as $displayTime)
+                  <span class="showtime-chip showtime-chip--static">{{ $displayTime }}</span>
+                @endforeach
+              @else
+                <span class="admin-movie__empty">No showtimes scheduled</span>
+              @endif
+            </div>
+            <div class="admin-collection__actions" role="group" aria-label="Manage movie actions">
+              <button type="button" class="btn btn--ghost btn--sm admin-movie__edit">Edit</button>
+              <button type="button" class="btn btn--ghost btn--sm admin-movie__toggle">
+                {{ $movie->is_active ? 'Set Inactive' : 'Set Active' }}
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm admin-movie__delete">Delete</button>
+            </div>
+            <div class="admin-movie__editor" hidden>
+              <form class="admin-edit-form" data-movie-id="{{ $movie->id }}">
+                <div class="admin-edit-grid">
+                  <label class="admin-field admin-field--compact">
+                    <span class="admin-field__label">Ticket Price (₱)</span>
+                    <div class="admin-price-control" data-price-control>
+                      <button type="button" class="admin-price-btn" data-price-dir="down" aria-label="Decrease price"><span aria-hidden="true">−</span></button>
+                      <input type="number" min="100" step="10" value="{{ number_format($movie->price, 2, '.', '') }}" data-price-input required>
+                      <button type="button" class="admin-price-btn" data-price-dir="up" aria-label="Increase price"><span aria-hidden="true">+</span></button>
+                    </div>
+                  </label>
+                  <label class="admin-field">
+                    <span class="admin-field__label">Audience Rating</span>
+                    <select data-edit-audience required>
+                      <option value="G" @selected($movie->audience === 'G')>G</option>
+                      <option value="PG" @selected($movie->audience === 'PG')>PG</option>
+                      <option value="R-13" @selected($movie->audience === 'R-13')>R-13</option>
+                      <option value="R-16" @selected($movie->audience === 'R-16')>R-16</option>
+                      <option value="R-18" @selected($movie->audience === 'R-18')>R-18</option>
+                    </select>
+                  </label>
+                  <label class="admin-field admin-field--wide">
+                    <span class="admin-field__label">Poster URL</span>
+                    <input type="text" value="{{ $movie->poster }}" placeholder="/images/movie.jpg or full URL" data-edit-poster>
+                  </label>
+                  <div class="admin-field admin-field--wide">
+                    <span class="admin-field__label">Showtimes</span>
+                    <div class="showtime-builder" data-showtime-builder data-initial-times='@json($showtimeValues)'>
+                      <div class="showtime-presets">
+                        <button type="button" class="preset-btn" data-times="09:00,12:00">Morning</button>
+                        <button type="button" class="preset-btn" data-times="13:00,15:30">Matinee</button>
+                        <button type="button" class="preset-btn" data-times="18:00,20:30">Evening</button>
+                        <button type="button" class="preset-btn" data-times="22:00,23:30">Late Night</button>
+                      </div>
+                      <div class="showtime-input-group">
+                        <input type="text" placeholder="Add custom (e.g., 3:00 PM or 15:00)" data-builder-input />
+                        <button type="button" class="btn btn--sm btn--ghost" data-builder-add>+ Add</button>
+                      </div>
+                      <div class="showtime-chips" data-builder-chips></div>
+                      <input type="hidden" data-builder-hidden>
+                      <p class="showtime-hint">Click presets or add custom times. Times will auto-sort.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="admin-edit-actions">
+                  <button type="button" class="btn btn--ghost btn--sm admin-edit-cancel">Cancel</button>
+                  <button type="submit" class="btn btn--primary btn--sm admin-edit-save">Save Changes</button>
+                </div>
+              </form>
+            </div>
           </li>
         @empty
           <li class="admin-collection__empty">No movies yet</li>
@@ -325,183 +411,437 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const priceInput = document.getElementById('priceInput');
-            const priceButtons = document.querySelectorAll('.admin-price-btn');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const movieList = document.getElementById('adminMovieList');
+            const activeCountEl = document.getElementById('adminActiveCount');
+            const builders = new WeakMap();
 
-            // Price adjustment buttons
-            function adjustPrice(button){
-                if(!priceInput) return;
-                const direction = button.getAttribute('data-dir') === 'up' ? 1 : -1;
-                const step = Number(priceInput.step || 10);
-                const min = Number(priceInput.min || 0);
-                const max = priceInput.max ? Number(priceInput.max) : null;
-                const current = Number(priceInput.value || min || 0);
-                let next = current + (direction * step);
-                if(!isFinite(next)) next = min || 0;
-                if(max !== null && isFinite(max)) next = Math.min(max, next);
-                next = Math.max(min, next);
-                const hasDecimals = step % 1 !== 0;
-                priceInput.value = hasDecimals ? next.toFixed(2) : String(Math.round(next));
-                priceInput.dispatchEvent(new Event('input', { bubbles: true }));
-                priceInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+            const formatCurrency = (value) => {
+                const amount = Number(value) || 0;
+                return amount.toFixed(2);
+            };
 
-            priceButtons.forEach(btn => {
-                btn.addEventListener('click', () => adjustPrice(btn));
-            });
+            const formatCurrencyDisplay = (value) => {
+                const amount = Number(value) || 0;
+                return new Intl.NumberFormat('en-PH', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(amount);
+            };
 
-            // Showtime Chip Builder
-            const customTimeInput = document.getElementById('customTimeInput');
-            const addTimeBtn = document.getElementById('addTimeBtn');
-            const showtimeChips = document.getElementById('showtimeChips');
-            const hiddenTimesInput = document.getElementById('hiddenTimesInput');
-            const presetButtons = document.querySelectorAll('.preset-btn');
-
-            let selectedTimes = new Set();
-
-            // Parse time string to 24-hour format
-            function parseTime(timeStr) {
-                timeStr = timeStr.trim();
-                if (!timeStr) return null;
-
-                // Match HH:MM format (24-hour)
-                let match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
-                if (match) {
-                    let hours = parseInt(match[1]);
-                    let minutes = parseInt(match[2]);
-                    if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-                        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                    }
-                }
-
-                // Match H:MM or HH:MM with AM/PM
-                match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
-                if (match) {
-                    let hours = parseInt(match[1]);
-                    let minutes = parseInt(match[2]);
-                    let period = match[3].toLowerCase();
-                    
-                    if (hours < 1 || hours > 12 || minutes < 0 || minutes >= 60) return null;
-                    
-                    if (period === 'pm' && hours !== 12) hours += 12;
-                    if (period === 'am' && hours === 12) hours = 0;
-                    
-                    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                }
-
-                return null;
-            }
-
-            // Convert 24-hour to 12-hour format for display
-            function formatTime12Hour(time24) {
+            const formatTime12Hour = (time24) => {
                 const [hours24, minutes] = time24.split(':').map(Number);
                 const period = hours24 >= 12 ? 'PM' : 'AM';
                 const hours12 = hours24 % 12 || 12;
                 return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
-            }
+            };
 
-            // Update chips display
-            function updateChips() {
-                showtimeChips.innerHTML = '';
-                const sortedTimes = Array.from(selectedTimes).sort();
-                
-                sortedTimes.forEach(time => {
-                    const chip = document.createElement('div');
-                    chip.className = 'time-chip';
-                    
-                    const timeSpan = document.createElement('span');
-                    timeSpan.textContent = formatTime12Hour(time);
-                    
-                    const removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'remove-time-btn';
-                    removeBtn.setAttribute('aria-label', `Remove ${time}`);
-                    removeBtn.setAttribute('data-time', time);
-                    removeBtn.textContent = '×';
-                    removeBtn.onclick = function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        selectedTimes.delete(time);
-                        updateChips();
-                        updateHiddenInput();
-                    };
-                    
-                    chip.appendChild(timeSpan);
-                    chip.appendChild(removeBtn);
-                    showtimeChips.appendChild(chip);
-                });
-            }
+            const parseTime = (timeStr) => {
+                if (!timeStr) return null;
+                let match = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+                if (match) {
+                    const hours = Number(match[1]);
+                    const minutes = Number(match[2]);
+                    if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                    }
+                }
+                match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+                if (match) {
+                    let hours = Number(match[1]);
+                    const minutes = Number(match[2]);
+                    const period = match[3].toLowerCase();
+                    if (hours < 1 || hours > 12 || minutes < 0 || minutes >= 60) return null;
+                    if (period === 'pm' && hours !== 12) hours += 12;
+                    if (period === 'am' && hours === 12) hours = 0;
+                    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                }
+                return null;
+            };
 
-            // Update hidden input for form submission
-            function updateHiddenInput() {
-                const sortedTimes = Array.from(selectedTimes).sort();
-                hiddenTimesInput.value = sortedTimes.join(', ');
-            }
+            class ShowtimeBuilder {
+                constructor(root, initialTimes = []) {
+                    this.root = root;
+                    this.input = root.querySelector('[data-builder-input]');
+                    this.addBtn = root.querySelector('[data-builder-add]');
+                    this.chips = root.querySelector('[data-builder-chips]');
+                    this.hidden = root.querySelector('[data-builder-hidden]');
+                    this.selectedTimes = new Set();
+                    this.onUpdateCallbacks = [];
 
-            // Add time(s) to selection
-            function addTimes(timesString) {
-                const times = timesString.split(',').map(t => t.trim()).filter(Boolean);
-                let hasInvalid = false;
-                
-                times.forEach(timeStr => {
-                    const parsed = parseTime(timeStr);
-                    if (parsed) {
-                        selectedTimes.add(parsed);
+                    const presetButtons = root.querySelectorAll('.preset-btn');
+                    presetButtons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const presetTimes = btn.dataset.times || '';
+                            presetTimes.split(',').map(t => t.trim()).filter(Boolean).forEach(time => this.addTime(time));
+                        });
+                    });
+
+                    this.addBtn?.addEventListener('click', () => this.commitInput());
+                    this.input?.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            this.commitInput();
+                        }
+                    });
+
+                    this.chips?.addEventListener('click', (event) => {
+                        const target = event.target.closest('[data-remove-time]');
+                        if (target) {
+                            const time = target.dataset.removeTime;
+                            this.removeTime(time);
+                        }
+                    });
+
+                    this.setTimes(initialTimes);
+                }
+
+                commitInput() {
+                    if (!this.input) return;
+                    const raw = this.input.value.trim();
+                    if (!raw) return;
+                    const candidateTimes = raw.split(',').map(t => t.trim()).filter(Boolean);
+                    let hasInvalid = false;
+                    candidateTimes.forEach(timeString => {
+                        const parsed = parseTime(timeString);
+                        if (parsed) {
+                            this.selectedTimes.add(parsed);
+                        } else {
+                            hasInvalid = true;
+                        }
+                    });
+                    if (hasInvalid) {
+                        this.input.classList.add('input--error');
+                        setTimeout(() => this.input.classList.remove('input--error'), 1200);
                     } else {
-                        hasInvalid = true;
+                        this.input.value = '';
+                    }
+                    this.render();
+                }
+
+                addTime(time) {
+                    const parsed = parseTime(time);
+                    if (!parsed) return;
+                    this.selectedTimes.add(parsed);
+                    this.render();
+                }
+
+                removeTime(time) {
+                    this.selectedTimes.delete(time);
+                    this.render();
+                }
+
+                render() {
+                    if (this.hidden) {
+                        this.hidden.value = this.getTimes().join(',');
+                    }
+
+                    if (this.chips) {
+                        this.chips.innerHTML = '';
+                        this.getTimes().forEach(time => {
+                            const chip = document.createElement('span');
+                            chip.className = 'time-chip';
+                            chip.setAttribute('data-time', time);
+                            chip.innerHTML = `
+                                <span>${formatTime12Hour(time)}</span>
+                                <button type="button" data-remove-time="${time}" aria-label="Remove ${formatTime12Hour(time)}">×</button>
+                            `;
+                            this.chips.appendChild(chip);
+                        });
+                    }
+
+                    this.onUpdateCallbacks.forEach(cb => cb(this.getTimes()));
+                }
+
+                getTimes() {
+                    return Array.from(this.selectedTimes).sort((a, b) => a.localeCompare(b));
+                }
+
+                setTimes(times = []) {
+                    this.selectedTimes = new Set(times.filter(Boolean).map(parseTime).filter(Boolean));
+                    this.render();
+                }
+
+                onUpdate(callback) {
+                    if (typeof callback === 'function') {
+                        this.onUpdateCallbacks.push(callback);
+                    }
+                }
+            }
+
+            const initPriceControl = (control) => {
+                const input = control.querySelector('[data-price-input]');
+                const buttons = control.querySelectorAll('[data-price-dir]');
+                if (!input) return;
+                buttons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const direction = button.dataset.priceDir === 'up' ? 1 : -1;
+                        const step = Number(input.step || 10);
+                        const min = Number(input.min || 0);
+                        const max = input.max ? Number(input.max) : null;
+                        const current = Number(input.value || min || 0);
+                        let next = current + (direction * step);
+                        if (!Number.isFinite(next)) next = min || 0;
+                        if (max !== null && Number.isFinite(max)) next = Math.min(max, next);
+                        next = Math.max(min, next);
+                        const hasDecimals = step % 1 !== 0;
+                        input.value = hasDecimals ? next.toFixed(2) : String(Math.round(next));
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
+            };
+
+            document.querySelectorAll('[data-price-control]').forEach(initPriceControl);
+
+            document.querySelectorAll('[data-showtime-builder]').forEach(root => {
+                let initial = [];
+                const attr = root.dataset.initialTimes;
+                if (attr) {
+                    try {
+                        initial = JSON.parse(attr);
+                    } catch (_) {
+                        initial = [];
+                    }
+                } else if (root.dataset.builderContext === 'create') {
+                    initial = [];
+                }
+                const builder = new ShowtimeBuilder(root, initial);
+                builders.set(root, builder);
+            });
+
+            const updateActiveCount = () => {
+                if (!activeCountEl) return;
+                const activeItems = movieList.querySelectorAll('.admin-collection__item[data-is-active="1"]');
+                activeCountEl.textContent = activeItems.length;
+            };
+
+            const ensureEmptyState = () => {
+                if (!movieList) return;
+                const hasItems = movieList.querySelector('.admin-collection__item');
+                let emptyEl = movieList.querySelector('.admin-collection__empty');
+                if (!hasItems && !emptyEl) {
+                    emptyEl = document.createElement('li');
+                    emptyEl.className = 'admin-collection__empty';
+                    emptyEl.textContent = 'No movies yet';
+                    movieList.appendChild(emptyEl);
+                } else if (hasItems && emptyEl) {
+                    emptyEl.remove();
+                }
+            };
+
+            const toggleEditor = (card, open) => {
+                const editor = card.querySelector('.admin-movie__editor');
+                if (!editor) return;
+                if (open) {
+                    editor.hidden = false;
+                    card.classList.add('admin-collection__item--editing');
+                } else {
+                    editor.hidden = true;
+                    card.classList.remove('admin-collection__item--editing');
+                }
+            };
+
+            const updateToggleButton = (button, isActive) => {
+                if (!button) return;
+                button.textContent = isActive ? 'Set Inactive' : 'Set Active';
+                if (isActive) {
+                    button.classList.remove('btn--primary');
+                    if (!button.classList.contains('btn--ghost')) {
+                        button.classList.add('btn--ghost');
+                    }
+                } else {
+                    button.classList.add('btn--primary');
+                    button.classList.remove('btn--ghost');
+                }
+            };
+
+            const updateStatusBadge = (badge, isActive) => {
+                if (!badge) return;
+                badge.textContent = isActive ? 'Active' : 'Inactive';
+                badge.classList.toggle('badge--active', isActive);
+                badge.classList.toggle('badge--inactive', !isActive);
+            };
+
+            const refreshShowtimePills = (container, times) => {
+                if (!container) return;
+                container.innerHTML = '';
+                if (!times.length) {
+                    const empty = document.createElement('span');
+                    empty.className = 'admin-movie__empty';
+                    empty.textContent = 'No showtimes scheduled';
+                    container.appendChild(empty);
+                    return;
+                }
+                times.forEach(time => {
+                    const pill = document.createElement('span');
+                    pill.className = 'showtime-chip showtime-chip--static';
+                    pill.textContent = formatTime12Hour(time);
+                    container.appendChild(pill);
+                });
+            };
+
+            const handleMovieCard = (card) => {
+                const editBtn = card.querySelector('.admin-movie__edit');
+                const toggleBtn = card.querySelector('.admin-movie__toggle');
+                const deleteBtn = card.querySelector('.admin-movie__delete');
+                const form = card.querySelector('.admin-edit-form');
+                const builderRoot = form?.querySelector('[data-showtime-builder]');
+                const builder = builderRoot ? builders.get(builderRoot) : null;
+
+                const priceEl = card.querySelector('.admin-movie__price');
+                const audienceEl = card.querySelector('.admin-movie__audience');
+                const statusBadge = card.querySelector('.admin-movie__status');
+                const showtimeContainer = card.querySelector('.admin-movie__showtimes');
+                const activeToggleBtn = toggleBtn;
+
+                const priceInput = form?.querySelector('[data-price-input]');
+                const audienceSelect = form?.querySelector('[data-edit-audience]');
+                const posterInput = form?.querySelector('[data-edit-poster]');
+                const cancelBtn = form?.querySelector('.admin-edit-cancel');
+
+                editBtn?.addEventListener('click', () => {
+                    const isOpen = !card.querySelector('.admin-movie__editor')?.hidden;
+                    toggleEditor(card, !isOpen);
+                });
+
+                cancelBtn?.addEventListener('click', () => {
+                    if (!form) return;
+                    priceInput.value = formatCurrency(card.dataset.price);
+                    audienceSelect.value = card.dataset.audience;
+                    posterInput.value = card.dataset.poster || '';
+                    const showtimes = card.dataset.showtimes ? JSON.parse(card.dataset.showtimes) : [];
+                    builder?.setTimes(showtimes);
+                    toggleEditor(card, false);
+                });
+
+                form?.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    if (!builder || !priceInput || !audienceSelect) return;
+
+                    const movieId = card.dataset.movieId;
+                    const payload = {
+                        title: card.dataset.title,
+                        price: Number(priceInput.value || 0),
+                        poster: posterInput.value.trim() || null,
+                        audience: audienceSelect.value,
+                        showtimes: builder.getTimes(),
+                        is_active: card.dataset.isActive === '1',
+                    };
+
+                    try {
+                        const response = await fetch(`/api/movies/${movieId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify(payload),
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok || !data.success) {
+                            alert(data?.error || 'Failed to update movie. Please try again.');
+                            return;
+                        }
+
+                        const updated = data.movie;
+                        if (updated) {
+                            card.dataset.price = formatCurrency(updated.price);
+                            card.dataset.audience = updated.audience;
+                            card.dataset.poster = (updated.poster || '').trim();
+                            card.dataset.showtimes = JSON.stringify(updated.showtimes || []);
+
+                            priceEl.textContent = formatCurrencyDisplay(updated.price);
+                            audienceEl.textContent = updated.audience;
+                            refreshShowtimePills(showtimeContainer, updated.showtimes || []);
+                            builder.setTimes(updated.showtimes || []);
+                        }
+
+                        toggleEditor(card, false);
+                    } catch (error) {
+                        console.error(error);
+                        alert('Network error while updating the movie.');
                     }
                 });
 
-                if (hasInvalid) {
-                    alert('Invalid time format. Use 24-hour (15:00) or 12-hour (3:00 PM) format.');
-                }
+                toggleBtn?.addEventListener('click', async () => {
+                    const movieId = card.dataset.movieId;
+                    const targetStatus = card.dataset.isActive === '1' ? 'inactive' : 'active';
+                    toggleBtn.disabled = true;
+                    try {
+                        const response = await fetch(`/admin/movies/${movieId}/status`, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({ status: targetStatus }),
+                        });
 
-                updateChips();
-                updateHiddenInput();
-            }
+                        const data = await response.json().catch(() => ({}));
 
-            // Preset buttons
-            presetButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const times = btn.getAttribute('data-times');
-                    addTimes(times);
-                    
-                    // Visual feedback
-                    btn.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        btn.style.transform = '';
-                    }, 100);
+                        if (!response.ok || !data.success) {
+                            alert(data?.error || 'Failed to update movie status.');
+                            return;
+                        }
+
+                        const isActive = data.is_active === true;
+                        card.dataset.isActive = isActive ? '1' : '0';
+                        card.classList.toggle('admin-collection__item--inactive', !isActive);
+                        updateToggleButton(activeToggleBtn, isActive);
+                        updateStatusBadge(statusBadge, isActive);
+                        updateActiveCount();
+                    } catch (error) {
+                        console.error(error);
+                        alert('Network error while updating the movie status.');
+                    } finally {
+                        toggleBtn.disabled = false;
+                    }
                 });
-            });
 
-            // Add custom time button
-            addTimeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const value = customTimeInput.value.trim();
-                if (value) {
-                    addTimes(value);
-                    customTimeInput.value = '';
-                    customTimeInput.focus();
-                }
-            });
+                deleteBtn?.addEventListener('click', async () => {
+                    const movieTitle = card.dataset.title;
+                    if (!confirm(`Delete ${movieTitle}? This cannot be undone.`)) return;
+                    deleteBtn.disabled = true;
+                    try {
+                        const response = await fetch(`/admin/movies/${card.dataset.movieId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok || !data.success) {
+                            alert(data?.error || 'Failed to delete movie.');
+                            return;
+                        }
+                        const builderRootEl = form?.querySelector('[data-showtime-builder]');
+                        if (builderRootEl) builders.delete(builderRootEl);
+                        card.remove();
+                        updateActiveCount();
+                        ensureEmptyState();
+                    } catch (error) {
+                        console.error(error);
+                        alert('Network error while deleting the movie.');
+                    } finally {
+                        deleteBtn.disabled = false;
+                    }
+                });
 
-            // Enter key on custom input
-            customTimeInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addTimeBtn.click();
-                }
-            });
+                updateToggleButton(activeToggleBtn, card.dataset.isActive === '1');
+            };
 
-            // Initialize with existing times if editing
-            const existingTimes = hiddenTimesInput.value;
-            if (existingTimes) {
-                addTimes(existingTimes);
-            }
-
+            movieList?.querySelectorAll('.admin-collection__item').forEach(card => handleMovieCard(card));
+            updateActiveCount();
+            ensureEmptyState();
         });
     </script>
 @endpush

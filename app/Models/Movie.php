@@ -32,6 +32,7 @@ class Movie extends Model
         'price',
         'poster',
         'audience',
+        'is_active',
     ];
 
     /**
@@ -41,6 +42,7 @@ class Movie extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -53,6 +55,9 @@ class Movie extends Model
         static::creating(function ($model) {
             if (empty($model->id)) {
                 $model->id = 'mv_' . Str::random(6) . substr(base_convert(time(), 10, 36), -4);
+            }
+            if (!isset($model->is_active)) {
+                $model->is_active = true;
             }
         });
     }
