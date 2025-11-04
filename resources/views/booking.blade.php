@@ -20,8 +20,9 @@
     <!-- Left Column: Booking Form -->
     <div class="booking-main">
       <h1 class="mb-0">Book Now!</h1>
-      <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or <strong>GCash</strong>.</p>
-      
+      <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or
+        <strong>GCash</strong>.</p>
+
       <form id="bookingForm" action="{{ route('cart.add') }}" method="POST">
         @csrf
         <div class="filters">
@@ -77,10 +78,13 @@
 
         <aside class="summary">
           <div class="summary__row"><span>Pax:</span><strong id="selectedSeats">—</strong></div>
-          <div class="summary__row"><span>Price per pax:</span><strong>₱<span id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
-          <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong></div>
+          <div class="summary__row"><span>Price per pax:</span><strong>₱<span
+                id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
+          <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong>
+          </div>
           <button id="addToCartBtn" class="btn" disabled>Add to cart</button>
-          <div id="authHint" class="form-help" style="{{ Auth::check() ? 'display:none' : '' }}">Log in as Client to proceed.</div>
+          <div id="authHint" class="form-help" style="{{ Auth::check() ? 'display:none' : '' }}">Log in as Client to
+            proceed.</div>
         </aside>
       </form>
 
@@ -95,7 +99,8 @@
               <li class="cart__item" data-index="{{ $index }}">
                 <div class="cart__main">
                   <strong class="cart__movie">{{ $item['title'] }}</strong>
-                  <span class="cart__meta">{{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} • {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</span>
+                  <span class="cart__meta">{{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} •
+                    {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</span>
                   <span class="cart__seats">{{ $item['quantity'] }} pax</span>
                 </div>
                 <div class="cart__price">₱<span>{{ $item['seatPrice'] * $item['quantity'] }}</span></div>
@@ -108,10 +113,11 @@
           @endif
         </ul>
         @if(count($cart) > 0)
-        <div class="summary__row" style="margin-top:6px; margin-bottom: 15px; padding-top:8px; border-top:1px solid var(--outline)">
-          <span>Cart total:</span>
-          <strong>₱{{ $cartTotal }}</strong>
-        </div>
+          <div class="summary__row"
+            style="margin-top:6px; margin-bottom: 15px; padding-top:8px; border-top:1px solid var(--outline)">
+            <span>Cart total:</span>
+            <strong>₱{{ $cartTotal }}</strong>
+          </div>
         @endif
         <div class="row">
           <button id="proceedPaymentBtn" type="button" class="btn btn--primary" {{ count($cart) > 0 ? '' : 'disabled' }}>Proceed to Payment</button>
@@ -123,42 +129,45 @@
       </section>
 
       @if(count($cart) > 0)
-      <section id="payment" class="payment" style="display:none">
-        <h2>Payment</h2>
-        <form action="{{ route('bookings.place') }}" method="POST">
-          @csrf
-          <div class="payment__methods">
-            <label class="pmethod">
-              <input type="radio" name="paymentMethod" value="cash" checked/> Cash (hold for 48 hours)
-            </label>
-            <label class="pmethod">
-              <input type="radio" name="paymentMethod" value="digital"/> GCash (instant confirmation)
-            </label>
-          </div>
+        <section id="payment" class="payment" style="display:none">
+          <h2>Payment</h2>
+          <form action="{{ route('bookings.place') }}" method="POST">
+            @csrf
+            <div class="payment__methods">
+              <label class="pmethod">
+                <input type="radio" name="paymentMethod" value="cash" checked /> Cash (hold for 48 hours)
+              </label>
+              <label class="pmethod">
+                <input type="radio" name="paymentMethod" value="digital" /> GCash (instant confirmation)
+              </label>
+            </div>
 
-          <ul class="summary-list">
-            @php $total = 0; @endphp
-            @foreach($cart as $item)
-              @php $line = $item['seatPrice'] * $item['quantity']; $total += $line; @endphp
-              <li class="summary-list__item">
-                <div>
-                  <strong>{{ $item['title'] }}</strong>
-                  <div style="font-size:.85rem;color:var(--muted)">{{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} • {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</div>
-                  <div style="font-size:.85rem;color:var(--muted)">{{ $item['quantity'] }} pax</div>
-                </div>
-                <div style="font-weight:600">₱{{ $line }}</div>
-              </li>
-            @endforeach
-          </ul>
+            <ul class="summary-list">
+              @php $total = 0; @endphp
+              @foreach($cart as $item)
+                @php $line = $item['seatPrice'] * $item['quantity'];
+                $total += $line; @endphp
+                <li class="summary-list__item">
+                  <div>
+                    <strong>{{ $item['title'] }}</strong>
+                    <div style="font-size:.85rem;color:var(--muted)">
+                      {{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} •
+                      {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</div>
+                    <div style="font-size:.85rem;color:var(--muted)">{{ $item['quantity'] }} pax</div>
+                  </div>
+                  <div style="font-weight:600">₱{{ $line }}</div>
+                </li>
+              @endforeach
+            </ul>
 
-          <div class="summary__row summary__total">
-            <span>Total:</span>
-            <strong>₱{{ $total }}</strong>
-          </div>
-          <button class="btn btn--primary" {{ count($cart) > 0 ? '' : 'disabled' }}>Confirm & Place Order</button>
-          <div class="form-help">Unpaid Cash reservations auto-cancel after 48 hours.</div>
-        </form>
-      </section>
+            <div class="summary__row summary__total">
+              <span>Total:</span>
+              <strong>₱{{ $total }}</strong>
+            </div>
+            <button class="btn btn--primary" {{ count($cart) > 0 ? '' : 'disabled' }}>Confirm & Place Order</button>
+            <div class="form-help">Unpaid Cash reservations auto-cancel after 48 hours.</div>
+          </form>
+        </section>
       @endif
     </div>
 
@@ -181,9 +190,9 @@
                 </div>
                 @foreach($booking->items as $item)
                   <div class="booking-item__detail">
-                    {{ \Carbon\Carbon::parse($item->booking_date)->format('M d, Y') }} • 
-                    {{ date('g:i A', strtotime($item->showtime)) }} • 
-                    {{ $item->cinema }} • 
+                    {{ \Carbon\Carbon::parse($item->booking_date)->format('M d, Y') }} •
+                    {{ date('g:i A', strtotime($item->showtime)) }} •
+                    {{ $item->cinema }} •
                     {{ $item->quantity }} pax
                   </div>
                 @endforeach
@@ -205,82 +214,82 @@
       <button id="mobileProceedBtn" type="button" class="btn btn--primary">Proceed to Payment</button>
     </div>
   @endif
-{{-- No JS templates needed in non-JS flow --}}
+  {{-- No JS templates needed in non-JS flow --}}
 @endsection
 
 @push('scripts')
-<script>
-  // Lightweight total calculator for the booking form (no Node/SPA needed)
-  (function(){
-  const form = document.getElementById('bookingForm');
-    const movieSel = document.getElementById('movieSelect');
-    const timeSel = document.getElementById('showtimeSelect');
-    const cinemaSel = document.getElementById('cinemaSelect');
-    const paxInput = document.getElementById('paxInput');
-    const seatPriceEl = document.getElementById('seatPrice');
-    const seatPriceInput = document.getElementById('seatPriceInput');
-    const selectedSeatsEl = document.getElementById('selectedSeats');
-    const totalPriceEl = document.getElementById('totalPrice');
-    const addBtn = document.getElementById('addToCartBtn');
-  const proceedBtn = document.getElementById('proceedPaymentBtn');
-  const mobileProceedBtn = document.getElementById('mobileProceedBtn');
-  const paymentSection = document.getElementById('payment');
+  <script>
+    // Lightweight total calculator for the booking form (no Node/SPA needed)
+    (function () {
+      const form = document.getElementById('bookingForm');
+      const movieSel = document.getElementById('movieSelect');
+      const timeSel = document.getElementById('showtimeSelect');
+      const cinemaSel = document.getElementById('cinemaSelect');
+      const paxInput = document.getElementById('paxInput');
+      const seatPriceEl = document.getElementById('seatPrice');
+      const seatPriceInput = document.getElementById('seatPriceInput');
+      const selectedSeatsEl = document.getElementById('selectedSeats');
+      const totalPriceEl = document.getElementById('totalPrice');
+      const addBtn = document.getElementById('addToCartBtn');
+      const proceedBtn = document.getElementById('proceedPaymentBtn');
+      const mobileProceedBtn = document.getElementById('mobileProceedBtn');
+      const paymentSection = document.getElementById('payment');
 
-    if(!form) return;
+      if (!form) return;
 
-    function numeric(text){
-      const n = parseFloat(String(text).replace(/[^0-9.]/g,''));
-      return isFinite(n) ? n : 0;
-    }
-
-    function allSelected(){
-      return movieSel && movieSel.value && timeSel && timeSel.value && cinemaSel && cinemaSel.value;
-    }
-
-    function recalc(){
-      const qty = Math.max(1, parseInt(paxInput?.value || '1', 10));
-      const price = numeric(seatPriceEl?.textContent || seatPriceInput?.value || 0);
-      selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
-      const total = (price * qty) || 0;
-      totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
-
-      // Enable Add to cart only when fields are selected and user is authenticated
-      if(addBtn){
-        const authed = {{ Auth::check() ? 'true' : 'false' }};
-        addBtn.disabled = !(allSelected() && price > 0 && authed);
+      function numeric(text) {
+        const n = parseFloat(String(text).replace(/[^0-9.]/g, ''));
+        return isFinite(n) ? n : 0;
       }
-    }
 
-    // When movie changes, navigate with ?movie=<id> to fetch showtimes server-side
-    if(movieSel){
-      movieSel.addEventListener('change', () => {
-        const url = movieSel.dataset.bookingUrl;
-        const id = movieSel.value;
-        if(url && id){
-          window.location.href = ${url}?movie=${encodeURIComponent(id)};
+      function allSelected() {
+        return movieSel && movieSel.value && timeSel && timeSel.value && cinemaSel && cinemaSel.value;
+      }
+
+      function recalc() {
+        const qty = Math.max(1, parseInt(paxInput?.value || '1', 10));
+        const price = numeric(seatPriceEl?.textContent || seatPriceInput?.value || 0);
+        selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
+        const total = (price * qty) || 0;
+        totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
+
+        // Enable Add to cart only when fields are selected and user is authenticated
+        if (addBtn) {
+          const authed = {{ Auth::check() ? 'true' : 'false' }};
+          addBtn.disabled = !(allSelected() && price > 0 && authed);
         }
-      });
-    }
+      }
 
-    [paxInput, timeSel, cinemaSel].forEach(el => el && el.addEventListener('input', recalc));
-    [timeSel, cinemaSel].forEach(el => el && el.addEventListener('change', recalc));
-    recalc();
+      // When movie changes, navigate with ?movie=<id> to fetch showtimes server-side
+      if (movieSel) {
+        movieSel.addEventListener('change', () => {
+          const url = movieSel.dataset.bookingUrl;
+          const id = movieSel.value;
+          if (url && id) {
+            window.location.href = ${ url }?movie = ${ encodeURIComponent(id) };
+          }
+        });
+      }
 
-    // Expand payment on demand for a cleaner flow
-    function openPayment(e){
+      [paxInput, timeSel, cinemaSel].forEach(el => el && el.addEventListener('input', recalc));
+      [timeSel, cinemaSel].forEach(el => el && el.addEventListener('change', recalc));
+      recalc();
+
+      // Expand payment on demand for a cleaner flow
+      function openPayment(e) {
         e.preventDefault();
         paymentSection.style.display = 'block';
         paymentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // focus the first payment radio for accessibility
         const firstRadio = paymentSection.querySelector('input[type="radio"]');
-        if(firstRadio) firstRadio.focus({ preventScroll: true });
-    }
-    if(proceedBtn && paymentSection){
-      proceedBtn.addEventListener('click', openPayment);
-    }
-    if(mobileProceedBtn && paymentSection){
-      mobileProceedBtn.addEventListener('click', openPayment);
-    }
-  })();
-</script>
+        if (firstRadio) firstRadio.focus({ preventScroll: true });
+      }
+      if (proceedBtn && paymentSection) {
+        proceedBtn.addEventListener('click', openPayment);
+      }
+      if (mobileProceedBtn && paymentSection) {
+        mobileProceedBtn.addEventListener('click', openPayment);
+      }
+    })();
+  </script>
 @endpush
