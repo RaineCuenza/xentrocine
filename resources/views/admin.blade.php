@@ -104,10 +104,24 @@
             <span class="admin-field__label">Poster</span>
             <input name="poster" type="text" placeholder="/images/movie.jpg or full URL" />
           </label>
-          <label class="admin-field admin-field--wide">
+          <div class="admin-field admin-field--wide">
             <span class="admin-field__label">Showtimes</span>
-            <input name="times" type="text" placeholder="Example: 13:00, 15:30, 20:00" required/>
-          </label>
+            <div class="showtime-builder">
+              <div class="showtime-presets">
+                <button type="button" class="preset-btn" data-times="09:00,12:00">Morning</button>
+                <button type="button" class="preset-btn" data-times="13:00,15:30">Matinee</button>
+                <button type="button" class="preset-btn" data-times="18:00,20:30">Evening</button>
+                <button type="button" class="preset-btn" data-times="22:00,23:30">Late Night</button>
+              </div>
+              <div class="showtime-input-group">
+                <input type="text" id="customTimeInput" placeholder="Add custom (e.g., 3:00 PM or 15:00)" />
+                <button type="button" id="addTimeBtn" class="btn btn--sm btn--ghost">+ Add</button>
+              </div>
+              <div id="showtimeChips" class="showtime-chips"></div>
+              <input name="times" type="hidden" id="hiddenTimesInput" required/>
+              <p class="showtime-hint">Click presets or add custom times. Times will auto-sort.</p>
+            </div>
+          </div>
         </div>
         <div class="admin-form__actions">
           <button class="btn btn--primary" type="submit">Add Movie</button>
@@ -178,17 +192,143 @@
 @endsection
 
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .showtime-builder {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .showtime-presets {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .preset-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid #334155;
+        background: #1e293b;
+        color: #cbd5e1;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+    
+    .preset-btn:hover {
+        background: #334155;
+        border-color: #475569;
+    }
+    
+    .preset-btn:active {
+        transform: scale(0.95);
+    }
+    
+    .showtime-input-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .showtime-input-group input {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 0.375rem;
+        color: #e2e8f0;
+        font-size: 0.875rem;
+    }
+    
+    .showtime-input-group input:focus {
+        outline: none;
+        border-color: #6366f1;
+    }
+    
+    .showtime-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        min-height: 2.5rem;
+        padding: 0.5rem;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 0.375rem;
+        pointer-events: none;
+    }
+    
+    .showtime-chips:empty::before {
+        content: 'No showtimes added yet';
+        color: #64748b;
+        font-size: 0.875rem;
+        font-style: italic;
+    }
+    
+    .time-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        animation: chipIn 0.2s ease-out;
+        pointer-events: auto;
+    }
+    
+    @keyframes chipIn {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    .time-chip button {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 0;
+        width: 1.25rem;
+        height: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background 0.2s;
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+    
+    .time-chip button:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .time-chip button:active {
+        transform: scale(0.9);
+    }
+    
+    .showtime-hint {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin: 0;
+    }
+</style>
 @endpush
 
 @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const showtimeInput = document.querySelector('input[name="times"]');
             const priceInput = document.getElementById('priceInput');
             const priceButtons = document.querySelectorAll('.admin-price-btn');
 
+            // Price adjustment buttons
             function adjustPrice(button){
                 if(!priceInput) return;
                 const direction = button.getAttribute('data-dir') === 'up' ? 1 : -1;
@@ -210,74 +350,157 @@
                 btn.addEventListener('click', () => adjustPrice(btn));
             });
 
-            if (!showtimeInput || typeof flatpickr === 'undefined') {
-                return;
+            // Showtime Chip Builder
+            const customTimeInput = document.getElementById('customTimeInput');
+            const addTimeBtn = document.getElementById('addTimeBtn');
+            const showtimeChips = document.getElementById('showtimeChips');
+            const hiddenTimesInput = document.getElementById('hiddenTimesInput');
+            const presetButtons = document.querySelectorAll('.preset-btn');
+
+            let selectedTimes = new Set();
+
+            // Parse time string to 24-hour format
+            function parseTime(timeStr) {
+                timeStr = timeStr.trim();
+                if (!timeStr) return null;
+
+                // Match HH:MM format (24-hour)
+                let match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+                if (match) {
+                    let hours = parseInt(match[1]);
+                    let minutes = parseInt(match[2]);
+                    if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                    }
+                }
+
+                // Match H:MM or HH:MM with AM/PM
+                match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+                if (match) {
+                    let hours = parseInt(match[1]);
+                    let minutes = parseInt(match[2]);
+                    let period = match[3].toLowerCase();
+                    
+                    if (hours < 1 || hours > 12 || minutes < 0 || minutes >= 60) return null;
+                    
+                    if (period === 'pm' && hours !== 12) hours += 12;
+                    if (period === 'am' && hours === 12) hours = 0;
+                    
+                    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                }
+
+                return null;
             }
 
-            const normalized = showtimeInput.value
-                .replace(/[\u2012-\u2015]/g, '-') // normalize dash variants
-                .replace(/-/g, ',');
-
-            const presetTimes = normalized
-                .split(',')
-                .map(time => time.trim())
-                .filter(Boolean);
-
-            const updateFromPicker = pickerInstance => {
-                const values = (pickerInstance.selectedDates || [])
-                    .map(date => pickerInstance.formatDate(date, 'H:i'));
-                showtimeInput.value = values.join(', ');
-            };
-
-            const picker = flatpickr(showtimeInput, {
-                enableTime: true,
-                noCalendar: true,
-                dateFormat: 'H:i',
-                minuteIncrement: 15,
-                allowInput: true,
-                mode: 'multiple',
-                defaultDate: presetTimes,
-                time_24hr: true,
-                conjunction: ', ',
-                onValueUpdate: updateFromPicker,
-                onClose: updateFromPicker
-            });
-
-            if(presetTimes.length){
-                showtimeInput.value = presetTimes.join(', ');
+            // Convert 24-hour to 12-hour format for display
+            function formatTime12Hour(time24) {
+                const [hours24, minutes] = time24.split(':').map(Number);
+                const period = hours24 >= 12 ? 'PM' : 'AM';
+                const hours12 = hours24 % 12 || 12;
+                return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
             }
 
-            const normalizeInput = () => {
-                const raw = showtimeInput.value
-                    .split(',')
-                    .map(entry => entry.trim())
-                    .filter(Boolean);
+            // Update chips display
+            function updateChips() {
+                showtimeChips.innerHTML = '';
+                const sortedTimes = Array.from(selectedTimes).sort();
+                
+                sortedTimes.forEach(time => {
+                    const chip = document.createElement('div');
+                    chip.className = 'time-chip';
+                    
+                    const timeSpan = document.createElement('span');
+                    timeSpan.textContent = formatTime12Hour(time);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'remove-time-btn';
+                    removeBtn.setAttribute('aria-label', `Remove ${time}`);
+                    removeBtn.setAttribute('data-time', time);
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        selectedTimes.delete(time);
+                        updateChips();
+                        updateHiddenInput();
+                    };
+                    
+                    chip.appendChild(timeSpan);
+                    chip.appendChild(removeBtn);
+                    showtimeChips.appendChild(chip);
+                });
+            }
 
-                if(raw.length){
-                    const formatted = raw
-                        .map(entry => picker.parseDate(entry, 'H:i') || picker.parseDate(entry, 'G:i') || picker.parseDate(entry, 'h:i K'))
-                        .filter(Boolean)
-                        .map(date => picker.formatDate(date, 'H:i'));
+            // Update hidden input for form submission
+            function updateHiddenInput() {
+                const sortedTimes = Array.from(selectedTimes).sort();
+                hiddenTimesInput.value = sortedTimes.join(', ');
+            }
 
-                    picker.setDate(formatted, false);
-                    showtimeInput.value = formatted.join(', ');
-                }else{
-                    picker.clear();
-                    showtimeInput.value = '';
+            // Add time(s) to selection
+            function addTimes(timesString) {
+                const times = timesString.split(',').map(t => t.trim()).filter(Boolean);
+                let hasInvalid = false;
+                
+                times.forEach(timeStr => {
+                    const parsed = parseTime(timeStr);
+                    if (parsed) {
+                        selectedTimes.add(parsed);
+                    } else {
+                        hasInvalid = true;
+                    }
+                });
+
+                if (hasInvalid) {
+                    alert('Invalid time format. Use 24-hour (15:00) or 12-hour (3:00 PM) format.');
                 }
-            };
 
-            showtimeInput.addEventListener('blur', () => updateFromPicker(picker));
+                updateChips();
+                updateHiddenInput();
+            }
 
-            showtimeInput.addEventListener('change', normalizeInput);
+            // Preset buttons
+            presetButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const times = btn.getAttribute('data-times');
+                    addTimes(times);
+                    
+                    // Visual feedback
+                    btn.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        btn.style.transform = '';
+                    }, 100);
+                });
+            });
 
-            showtimeInput.addEventListener('keydown', (event) => {
-                if(event.key === 'Enter'){
-                    event.preventDefault();
-                    normalizeInput();
-                    picker.open();
+            // Add custom time button
+            addTimeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const value = customTimeInput.value.trim();
+                if (value) {
+                    addTimes(value);
+                    customTimeInput.value = '';
+                    customTimeInput.focus();
                 }
             });
+
+            // Enter key on custom input
+            customTimeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTimeBtn.click();
+                }
+            });
+
+            // Initialize with existing times if editing
+            const existingTimes = hiddenTimesInput.value;
+            if (existingTimes) {
+                addTimes(existingTimes);
+            }
 
         });
     </script>
