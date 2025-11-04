@@ -262,27 +262,33 @@
 
       // When movie changes, navigate with ?movie=<id> to fetch showtimes server-side
       if (movieSel) {
-        movieSel.addEventListener('change', () => {
+        movieSel.addEventListener('change', function() {
           const url = movieSel.dataset.bookingUrl;
           const id = movieSel.value;
           if (url && id) {
-            window.location.href = ${ url }?movie = ${ encodeURIComponent(id) };
+            window.location.href = url + '?movie=' + encodeURIComponent(id);
           }
         });
       }
 
-      [paxInput, timeSel, cinemaSel].forEach(el => el && el.addEventListener('input', recalc));
-      [timeSel, cinemaSel].forEach(el => el && el.addEventListener('change', recalc));
+      [paxInput, timeSel, cinemaSel].forEach(function(el) {
+        if(el) el.addEventListener('input', recalc);
+      });
+      [timeSel, cinemaSel].forEach(function(el) {
+        if(el) el.addEventListener('change', recalc);
+      });
       recalc();
 
       // Expand payment on demand for a cleaner flow
       function openPayment(e) {
         e.preventDefault();
-        paymentSection.style.display = 'block';
-        paymentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // focus the first payment radio for accessibility
-        const firstRadio = paymentSection.querySelector('input[type="radio"]');
-        if (firstRadio) firstRadio.focus({ preventScroll: true });
+        if(paymentSection){
+          paymentSection.style.display = 'block';
+          paymentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // focus the first payment radio for accessibility
+          const firstRadio = paymentSection.querySelector('input[type="radio"]');
+          if (firstRadio) firstRadio.focus({ preventScroll: true });
+        }
       }
       if (proceedBtn && paymentSection) {
         proceedBtn.addEventListener('click', openPayment);
