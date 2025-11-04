@@ -20,7 +20,6 @@
     <input name="password" type="password" placeholder="Your password" required/>
   </label>
   <button class="btn btn--primary" type="submit">Log in</button>
-  <div class="form-help">Default Admin: <code>admin@admin</code> / <code>@dmin_123</code></div>
   <div class="form-help">New here? <a href="{{ route('signup') }}">Create an account</a></div>
 </form>
 @endsection

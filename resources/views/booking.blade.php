@@ -257,7 +257,7 @@
         const url = movieSel.dataset.bookingUrl;
         const id = movieSel.value;
         if(url && id){
-          window.location.href = `${url}?movie=${encodeURIComponent(id)}`;
+          window.location.href = ${url}?movie=${encodeURIComponent(id)};
         }
       });
     }
