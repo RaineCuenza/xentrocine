@@ -77,16 +77,6 @@ php artisan key:generate
 
 Create a MySQL database named `xentrocine_db`:
 
-```sql
-CREATE DATABASE xentrocine_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Or using MySQL command line:
-
-```bash
-mysql -u root -p -e "CREATE DATABASE xentrocine_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-```
-
 ### 7. Run Database Migrations
 
 ```bash
