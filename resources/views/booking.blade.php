@@ -18,7 +18,7 @@
   <!-- Two-Column Layout: Book Now (Left) | My Bookings (Right) -->
   <div class="booking-layout">
     <!-- Left Column: Booking Form -->
-    <div class="booking-main">
+    <div class="booking-main" style="min-height:1000px;">
       <h1 class="mb-0">Book Now!</h1>
       <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or
         <strong>GCash</strong>.</p>

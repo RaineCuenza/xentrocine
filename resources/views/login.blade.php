@@ -4,9 +4,10 @@
 @section('page', 'login')
 
 @section('content')
-<h1>Welcome back</h1>
-<form action="{{ route('auth.login.submit') }}" method="POST" class="authform" novalidate>
-  @csrf
+<div style="display:flex; flex-direction:column; align-items:center; padding:3rem 2rem; min-height:900px; margin:0 auto;">
+  <h1 style="text-align:center; margin-bottom:1rem;">Welcome back!</h1>
+  <form action="{{ route('auth.login.submit') }}" method="POST" class="authform" novalidate style="width:100%; max-width:700px;">
+   @csrf
   @if (session('error'))
     <div class="form-error">{{ session('error') }}</div>
   @endif
@@ -21,5 +22,6 @@
   </label>
   <button class="btn btn--primary" type="submit">Log in</button>
   <div class="form-help">New here? <a href="{{ route('signup') }}">Create an account</a></div>
-</form>
+  </form>
+</div>
 @endsection
