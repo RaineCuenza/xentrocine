@@ -48,6 +48,7 @@ git clone https://github.com/RaineCuenza/xentrocine.git
 cd xentrocine
 composer install
 npm install
+npm install --save html5-qrcode
 cp .env.example .env
 php artisan key:generate
 ```
