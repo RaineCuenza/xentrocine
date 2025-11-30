@@ -120,6 +120,75 @@ class AuthController extends Controller
     }
 
     /**
+     * Web: Login via HTML form
+     */
+    public function webLogin(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
+            ]);
+
+            $email = strtolower(trim($validated['email']));
+            $user = User::where('email', $email)->first();
+
+            if (!$user || !Hash::check($validated['password'], $user->password)) {
+                return back()->withErrors(['email' => 'Invalid credentials'])->withInput();
+            }
+
+            Auth::login($user);
+            $request->session()->regenerate();
+            return redirect()->intended(route('home'));
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->validator->errors())->withInput();
+        } catch (\Exception $e) {
+            return back()->withErrors(['email' => 'Server error during login'])->withInput();
+        }
+    }
+
+    /**
+     * Web: Signup via HTML form
+     */
+    public function webSignup(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|min:2',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|string|min:6',
+            ]);
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => strtolower(trim($validated['email'])),
+                'password' => $validated['password'],
+                'role' => 'client',
+            ]);
+
+            event(new Registered($user));
+            Auth::login($user);
+            $request->session()->regenerate();
+            return redirect()->route('booking')->with('message', 'Account created! Please verify your email.');
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->validator->errors())->withInput();
+        } catch (\Exception $e) {
+            return back()->withErrors(['email' => 'Server error during signup'])->withInput();
+        }
+    }
+
+    /**
+     * Web: Logout
+     */
+    public function webLogout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect()->route('home');
+    }
+
+    /**
      * Get current session user
      */
     public function session(Request $request)

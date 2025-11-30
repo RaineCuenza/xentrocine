@@ -17,9 +17,8 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('email', 100)->unique();
             $table->string('password');
-            $table->enum('role', ['client', 'admin'])->default('client');
+            $table->enum('role', ['client', 'admin', 'staff'])->default('client');
             $table->timestamps();
-            
             $table->index('email');
             $table->index('role');
         });
@@ -30,10 +29,12 @@ return new class extends Migration
             $table->string('title', 200);
             $table->decimal('price', 10, 2);
             $table->string('poster', 500)->nullable();
-            $table->decimal('rating', 3, 1)->default(0);
+            // Audience classification (MTRCB): G, PG, R-13, R-16, R-18
+            $table->enum('audience', ['G', 'PG', 'R-13', 'R-16', 'R-18'])->default('PG');
             $table->timestamps();
             
             $table->index('title');
+            $table->index('audience');
         });
 
         // Showtimes table
@@ -65,7 +66,7 @@ return new class extends Migration
             $table->index('created_at');
         });
 
-        // Booking items table
+        // Booking items table (pax-based, no per-seat reservations)
         Schema::create('booking_items', function (Blueprint $table) {
             $table->id();
             $table->string('booking_id', 50);
@@ -74,9 +75,8 @@ return new class extends Migration
             $table->date('booking_date');
             $table->time('showtime');
             $table->string('cinema', 50);
-            $table->integer('seat_row');
-            $table->integer('seat_col');
-            $table->string('seat_key', 20);
+            // Number of pax (tickets) for this session
+            $table->unsignedInteger('quantity');
             $table->decimal('price', 10, 2);
             $table->timestamps();
             
@@ -85,8 +85,8 @@ return new class extends Migration
             $table->index('booking_id');
             $table->index('movie_id');
             $table->index(['movie_id', 'booking_date', 'showtime', 'cinema'], 'idx_session');
-            $table->index(['seat_row', 'seat_col']);
-            $table->unique(['movie_id', 'booking_date', 'showtime', 'cinema', 'seat_key'], 'unique_seat_session');
+            // Optional: prevent duplicate session rows in a single booking (one row per movie/date/time/cinema per booking)
+            $table->unique(['booking_id', 'movie_id', 'booking_date', 'showtime', 'cinema'], 'unique_booking_session');
         });
     }
 

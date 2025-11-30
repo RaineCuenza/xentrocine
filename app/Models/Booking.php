@@ -35,6 +35,10 @@ class Booking extends Model
         'reference',
         'total',
         'status',
+        'payment_method',
+        'et_qr_token',
+        'entry_scanned_at',
+        'checked_in_by',
     ];
 
     /**
@@ -44,6 +48,7 @@ class Booking extends Model
      */
     protected $casts = [
         'total' => 'decimal:2',
+        'entry_scanned_at' => 'datetime',
     ];
 
     /**
@@ -98,5 +103,37 @@ class Booking extends Model
     public function isCancelled(): bool
     {
         return $this->status === 'Cancelled';
+    }
+
+    /**
+     * Check if booking is checked in
+     */
+    public function isCheckedIn(): bool
+    {
+        return !is_null($this->entry_scanned_at);
+    }
+
+    /**
+     * Check if payment is cash
+     */
+    public function isCashPayment(): bool
+    {
+        return $this->payment_method === 'cash';
+    }
+
+    /**
+     * Check if payment is digital
+     */
+    public function isDigitalPayment(): bool
+    {
+        return $this->payment_method === 'digital';
+    }
+
+    /**
+     * Get the user who checked in this booking
+     */
+    public function checkedInBy()
+    {
+        return $this->belongsTo(User::class, 'checked_in_by', 'id');
     }
 }

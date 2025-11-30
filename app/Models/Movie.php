@@ -31,7 +31,8 @@ class Movie extends Model
         'title',
         'price',
         'poster',
-        'rating',
+        'audience',
+        'is_active',
     ];
 
     /**
@@ -41,7 +42,7 @@ class Movie extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
-        'rating' => 'decimal:1',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -55,6 +56,9 @@ class Movie extends Model
             if (empty($model->id)) {
                 $model->id = 'mv_' . Str::random(6) . substr(base_convert(time(), 10, 36), -4);
             }
+            if (!isset($model->is_active)) {
+                $model->is_active = true;
+            }
         });
     }
 
@@ -63,7 +67,7 @@ class Movie extends Model
      */
     public function showtimes()
     {
-        return $this->hasMany(Showtime::class, 'movie_id', 'id');
+        return $this->hasMany(Showtime::class, 'movie_id', 'id')->orderBy('showtime');
     }
 
     /**
