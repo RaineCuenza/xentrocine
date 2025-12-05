@@ -4,8 +4,9 @@
 @section('page', 'login')
 
 @section('content')
-<h1>Create your account</h1>
-<form action="{{ route('auth.signup.submit') }}" method="POST" class="authform" novalidate>
+<div style="display:flex; flex-direction:column; align-items:center; padding:3rem 2rem; min-height:900px; margin:0 auto;">
+<h1 style="text-align:center; margin-bottom:1rem;" >Create your account</h1>
+<form action="{{ route('auth.signup.submit') }}" method="POST" class="authform" novalidate style="width:100%; max-width:700px;">
   @csrf
   @if ($errors->any())
     <div class="form-error">{{ $errors->first() }}</div>
