@@ -23,7 +23,7 @@
       <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or
         <strong>GCash</strong>.</p>
 
-      <form id="bookingForm" action="{{ route('cart.add') }}" method="POST">
+      <form id="bookingForm" action="{{ route('cart.add') }}" method="POST" data-authed="{{ Auth::check() ? '1' : '0' }}">
         @csrf
         <div class="filters">
           <label>Movie
@@ -65,18 +65,37 @@
         </div>
 
         <div class="pax-field">
-          <label class="pax-field__label" for="paxInput">Number of Pax</label>
-          <div class="pax-field__control" role="group" aria-label="Adjust number of seats">
-            <button type="button" class="pax-btn" data-dir="down" aria-label="Decrease pax">
-              <span aria-hidden="true">−</span>
-            </button>
-            <input id="paxInput" class="pax-field__input" name="quantity" type="number" inputmode="numeric" min="1" max="20" value="1" />
-            <button type="button" class="pax-btn" data-dir="up" aria-label="Increase pax">
-              <span aria-hidden="true">+</span>
-            </button>
+          <label class="pax-field__label">Pax</label>
+          <div class="pax-split-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+            <div>
+              <label class="pax-field__label" for="regularCount">Regular</label>
+              <div class="pax-field__control" role="group" aria-label="Adjust regular pax">
+                <button type="button" class="pax-btn" data-dir="down" data-target="regularCount" aria-label="Decrease regular">
+                  <span aria-hidden="true">−</span>
+                </button>
+                <input id="regularCount" class="pax-field__input" name="quantity" type="number" inputmode="numeric" min="0" max="20" value="1" />
+                <button type="button" class="pax-btn" data-dir="up" data-target="regularCount" aria-label="Increase regular">
+                  <span aria-hidden="true">+</span>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="pax-field__label" for="seniorCount">Senior</label>
+              <div class="pax-field__control" role="group" aria-label="Adjust senior pax">
+                <button type="button" class="pax-btn" data-dir="down" data-target="seniorCount" aria-label="Decrease senior">
+                  <span aria-hidden="true">−</span>
+                </button>
+                <input id="seniorCount" class="pax-field__input" name="seniorQuantity" type="number" inputmode="numeric" min="0" max="20" value="0" />
+                <button type="button" class="pax-btn" data-dir="up" data-target="seniorCount" aria-label="Increase senior">
+                  <span aria-hidden="true">+</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <small class="booking-field__hint">Up to 20 seats per reservation.</small>
+          <small class="booking-field__hint">Max 20 seats total per reservation. Senior gets 20% discount.</small>
         </div>
+
+        
 
         @if(isset($selectedMovie))
           <input type="hidden" name="title" value="{{ $selectedMovie->title }}" />
@@ -87,13 +106,20 @@
 
         <aside class="summary">
           <div class="summary__row"><span>Pax:</span><strong id="selectedSeats">—</strong></div>
+          <div class="summary__row"><span>Breakdown:</span><strong><span id="breakdownLabel">—</span></strong></div>
           <div class="summary__row"><span>Price per pax:</span><strong>₱<span
                 id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
           <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong>
           </div>
+          <div class="summary__row" id="discountInfo" style="display:none"><span>Discount:</span><strong><span id="discountLabel">—</span></strong></div>
           <button id="addToCartBtn" class="btn" disabled>Add to cart</button>
-          <div id="authHint" class="form-help" style="{{ Auth::check() ? 'display:none' : '' }}">Log in as Client to
-            proceed.</div>
+          {{-- Auth hint without inline CSS to avoid parser issues --}}
+          @auth
+            <div id="authHint" class="form-help" style="display:none">Log in as Client to proceed.</div>
+          @endauth
+          @guest
+            <div id="authHint" class="form-help">Log in as Client to proceed.</div>
+          @endguest
         </aside>
       </form>
 
@@ -110,9 +136,17 @@
                   <strong class="cart__movie">{{ $item['title'] }}</strong>
                   <span class="cart__meta">{{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} •
                     {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</span>
-                  <span class="cart__seats">{{ $item['quantity'] }} pax</span>
+                  @php
+                    $reg = ($item['quantity'] ?? 0) - ($item['seniorQuantity'] ?? 0);
+                    $sen = ($item['seniorQuantity'] ?? 0);
+                    if ($reg < 0) $reg = 0;
+                  @endphp
+                  <span class="cart__seats">{{ $reg + $sen }} pax ({{ $reg }} Regular / {{ $sen }} Senior)</span>
                 </div>
-                <div class="cart__price">₱<span>{{ $item['seatPrice'] * $item['quantity'] }}</span></div>
+                @php
+                  $lineTotal = ($item['seatPrice'] * $reg) + ($item['seatPrice'] * $sen * 0.8);
+                @endphp
+                <div class="cart__price">₱<span>{{ $lineTotal }}</span></div>
                 <form action="{{ route('cart.remove', $index) }}" method="POST">
                   @csrf
                   <button class="cart__remove" title="Remove">✕</button>
@@ -154,7 +188,11 @@
             <ul class="summary-list">
               @php $total = 0; @endphp
               @foreach($cart as $item)
-                @php $line = $item['seatPrice'] * $item['quantity'];
+                @php 
+                  $reg = ($item['quantity'] ?? 0) - ($item['seniorQuantity'] ?? 0);
+                  $sen = ($item['seniorQuantity'] ?? 0);
+                  if ($reg < 0) $reg = 0;
+                  $line = ($item['seatPrice'] * $reg) + ($item['seatPrice'] * $sen * 0.8);
                 $total += $line; @endphp
                 <li class="summary-list__item">
                   <div>
@@ -162,7 +200,7 @@
                     <div style="font-size:.85rem;color:var(--muted)">
                       {{ \Carbon\Carbon::parse($item['date'])->format('M d, Y') }} •
                       {{ date('g:i A', strtotime($item['time'])) }} • {{ $item['cinema'] }}</div>
-                    <div style="font-size:.85rem;color:var(--muted)">{{ $item['quantity'] }} pax</div>
+                    <div style="font-size:.85rem;color:var(--muted)">{{ $reg + $sen }} pax ({{ $reg }} Regular / {{ $sen }} Senior)</div>
                   </div>
                   <div style="font-weight:600">₱{{ $line }}</div>
                 </li>
@@ -228,13 +266,14 @@
 
 @push('scripts')
   <script>
-    // Lightweight total calculator for the booking form (no Node/SPA needed)
+
     (function () {
       const form = document.getElementById('bookingForm');
       const movieSel = document.getElementById('movieSelect');
       const timeSel = document.getElementById('showtimeSelect');
       const cinemaSel = document.getElementById('cinemaSelect');
-      const paxInput = document.getElementById('paxInput');
+    const regularInput = document.getElementById('regularCount');
+    const seniorInput = document.getElementById('seniorCount');
       const seatPriceEl = document.getElementById('seatPrice');
       const seatPriceInput = document.getElementById('seatPriceInput');
       const selectedSeatsEl = document.getElementById('selectedSeats');
@@ -256,8 +295,23 @@
       }
 
       function recalc() {
-        const paxValue = paxInput && paxInput.value ? paxInput.value : '1';
-        const qty = Math.max(1, parseInt(paxValue, 10));
+        let reg = Math.max(0, parseInt(regularInput?.value || '0', 10));
+        let sen = Math.max(0, parseInt(seniorInput?.value || '0', 10));
+        let qty = reg + sen;
+        // enforce 20 total seats
+        if (qty > 20) {
+          const overflow = qty - 20;
+          if (reg >= overflow) {
+            reg = reg - overflow;
+            regularInput.value = String(reg);
+          } else {
+            const remain = overflow - reg;
+            reg = 0; regularInput.value = '0';
+            sen = Math.max(0, sen - remain);
+            seniorInput.value = String(sen);
+          }
+          qty = reg + sen;
+        }
         const seatText = seatPriceEl && typeof seatPriceEl.textContent === 'string' ? seatPriceEl.textContent : '';
         const seatHidden = seatPriceInput && seatPriceInput.value ? seatPriceInput.value : '';
         const price = numeric(seatText || seatHidden || 0);
@@ -266,32 +320,48 @@
           selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
         }
 
-        const total = price * qty;
+        const regularTotal = price * reg;
+        const seniorTotal = price * sen * 0.8; // 20% discount for seniors
+        const total = regularTotal + seniorTotal;
         if (totalPriceEl) {
           totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
         }
+        const breakdownLabel = document.getElementById('breakdownLabel');
+        if (breakdownLabel) breakdownLabel.textContent = `${reg} Regular, ${sen} Senior`;
+        const discountInfo = document.getElementById('discountInfo');
+        const discountLabel = document.getElementById('discountLabel');
+        const discountAmt = price * sen * 0.2;
+        if (discountInfo) {
+          if (sen > 0) {
+            discountInfo.style.display = 'flex';
+            if (discountLabel) discountLabel.textContent = `₱${discountAmt.toFixed(2).replace(/\.00$/, '')} (20% on seniors)`;
+          } else {
+            discountInfo.style.display = 'none';
+          }
+        }
 
         if (addBtn) {
-          const authed = {{ Auth::check() ? 'true' : 'false' }};
-          addBtn.disabled = !(allSelected() && price > 0 && authed);
+          const authed = form && form.dataset.authed === '1';
+          addBtn.disabled = !(allSelected() && price > 0 && authed && qty > 0);
         }
       }
 
-      if (paxInput) {
-        const paxButtons = document.querySelectorAll('.pax-btn');
-        paxButtons.forEach(function(button) {
-          button.addEventListener('click', function() {
-            const direction = button.getAttribute('data-dir') === 'up' ? 1 : -1;
-            const min = Number(paxInput.min || 1);
-            const max = Number(paxInput.max || 20);
-            const current = Number(paxInput.value || min);
-            const next = Math.max(min, Math.min(max, current + direction));
-            paxInput.value = next;
-            paxInput.dispatchEvent(new Event('input', { bubbles: true }));
-            paxInput.dispatchEvent(new Event('change', { bubbles: true }));
-          });
+      const paxButtons = document.querySelectorAll('.pax-btn');
+      paxButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+          const dir = button.getAttribute('data-dir') === 'up' ? 1 : -1;
+          const targetId = button.getAttribute('data-target');
+          const input = document.getElementById(targetId);
+          if (!input) return;
+          const min = Number(input.min || 0);
+          const max = Number(input.max || 20);
+          const current = Number(input.value || min);
+          const next = Math.max(min, Math.min(max, current + dir));
+          input.value = String(next);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-      }
+      });
 
       // When movie changes, navigate with ?movie=<id> to fetch showtimes server-side
       if (movieSel) {
@@ -304,10 +374,10 @@
         });
       }
 
-      [paxInput, timeSel, cinemaSel].forEach(function(el) {
+      [regularInput, seniorInput, timeSel, cinemaSel].forEach(function(el) {
         if(el) el.addEventListener('input', recalc);
       });
-      [timeSel, cinemaSel].forEach(function(el) {
+      [timeSel, cinemaSel, regularInput, seniorInput].forEach(function(el) {
         if(el) el.addEventListener('change', recalc);
       });
       recalc();

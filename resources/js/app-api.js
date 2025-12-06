@@ -448,10 +448,17 @@ async function initWalkinBooking() {
 
   function updateTotals(){
     const pax = Number(paxInput.value || 1);
+    const categorySel = document.getElementById('walkinCategory');
+    const category = categorySel ? categorySel.value : 'regular';
     seatsCount.textContent = pax;
-    totalAmount.textContent = formatCurrency(pax * (chosenMovie?.price || 0));
+    let total = pax * (chosenMovie?.price || 0);
+    if (category === 'senior' || category === 'pwd') {
+      total = total * 0.8; // 20% discount
+    }
+    totalAmount.textContent = formatCurrency(total);
   }
   paxInput?.addEventListener('input', updateTotals);
+  document.getElementById('walkinCategory')?.addEventListener('change', updateTotals);
 
   backBtn?.addEventListener('click', () => {
     seatStep.style.display = 'none';
@@ -464,6 +471,8 @@ async function initWalkinBooking() {
     const phone = document.getElementById('customerPhone')?.value.trim();
     const paymentMethod = (document.querySelector('input[name="paymentMethod"]:checked')?.value) || 'cash';
     const quantity = Number(paxInput.value || 1);
+  const categorySel = document.getElementById('walkinCategory');
+  const payCategory = categorySel ? categorySel.value : 'regular';
 
     const payload = {
       paymentMethod,
@@ -475,7 +484,8 @@ async function initWalkinBooking() {
         time: showtimeSelect.value,
         cinema: cinemaSelect.value,
         quantity,
-        seatPrice: Number(chosenMovie.price)
+        seatPrice: Number(chosenMovie.price),
+        payCategory
       }]
     };
 

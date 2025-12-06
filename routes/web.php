@@ -159,32 +159,7 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('admin')->with('message', 'Movie status updated');
     });
 
-    Route::delete('/admin/movies/{id}', function (\Illuminate\Http\Request $request, $id) {
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
-            $error = ['error' => 'Unauthorized'];
-            return $request->expectsJson()
-                ? response()->json($error, 403)
-                : redirect()->route('home')->with('error', 'Unauthorized');
-        }
-        $movie = App\Models\Movie::find($id);
-        if (!$movie) {
-            $error = ['error' => 'Movie not found'];
-            return $request->expectsJson()
-                ? response()->json($error, 404)
-                : redirect()->route('admin')->with('error', 'Movie not found');
-        }
-
-        $movie->delete();
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Movie deleted',
-            ]);
-        }
-
-        return redirect()->route('admin')->with('message', 'Movie deleted');
-    });
+    // Remove hard delete in favor of archive/unarchive via status route above
 
     Route::post('/admin/bookings/{id}/cancel', function ($id) {
         if (!Auth::check() || Auth::user()->role !== 'admin') {

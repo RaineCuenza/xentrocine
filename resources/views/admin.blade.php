@@ -72,7 +72,10 @@
         <h2>Manage Movies</h2>
         <p class="admin-panel__hint">Create, update, or retire titles across your catalogue.</p>
       </div>
-      <span class="admin-panel__tag"><span id="adminActiveCount">{{ $movies->where('is_active', true)->count() }}</span> active</span>
+      <div class="admin-panel__tags">
+        <span class="admin-panel__tag"><span id="adminActiveCount">{{ $movies->where('is_active', true)->count() }}</span> active</span>
+        <span class="admin-panel__tag"><span id="adminArchivedCount">{{ $movies->where('is_active', false)->count() }}</span> archived</span>
+      </div>
     </header>
     <div class="admin-panel__body">
       <form action="{{ url('/admin/movies') }}" method="POST" class="admin-form" novalidate>
@@ -128,8 +131,9 @@
         </div>
       </form>
       
+      <h3 style="margin-top:0.5rem">Active Movies</h3>
       <ul id="adminMovieList" class="admin-collection">
-        @forelse($movies as $movie)
+        @forelse($movies->where('is_active', true) as $movie)
           @php
             $rawTimes = $movie->showtimes->pluck('showtime')
               ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
@@ -175,7 +179,19 @@
               <button type="button" class="btn btn--ghost btn--sm admin-movie__toggle">
                 {{ $movie->is_active ? 'Set Inactive' : 'Set Active' }}
               </button>
-              <button type="button" class="btn btn--ghost btn--sm admin-movie__delete">Delete</button>
+              @if($movie->is_active)
+                <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
+                  @csrf
+                  <input type="hidden" name="status" value="inactive">
+                  <button type="submit" class="btn btn--ghost btn--sm admin-movie__archive">Archive</button>
+                </form>
+              @else
+                <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
+                  @csrf
+                  <input type="hidden" name="status" value="active">
+                  <button type="submit" class="btn btn--ghost btn--sm admin-movie__unarchive">Unarchive</button>
+                </form>
+              @endif
             </div>
             <div class="admin-movie__editor" hidden>
               <form class="admin-edit-form" data-movie-id="{{ $movie->id }}">
@@ -229,7 +245,62 @@
             </div>
           </li>
         @empty
-          <li class="admin-collection__empty">No movies yet</li>
+          <li class="admin-collection__empty">No active movies</li>
+        @endforelse
+      </ul>
+
+      <h3 style="margin-top:2rem">Archived Movies</h3>
+      <ul id="adminArchivedList" class="admin-collection">
+        @forelse($movies->where('is_active', false) as $movie)
+          @php
+            $rawTimes = $movie->showtimes->pluck('showtime')
+              ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
+              ->unique()
+              ->sort()
+              ->values();
+            $showtimeValues = $rawTimes->toArray();
+            $showtimeDisplay = $rawTimes->map(fn($time) => \Carbon\Carbon::createFromFormat('H:i', $time)->format('g:i A'))->toArray();
+          @endphp
+          <li class="admin-collection__item admin-collection__item--inactive"
+              data-movie-id="{{ $movie->id }}"
+              data-title="{{ $movie->title }}"
+              data-price="{{ $movie->price }}"
+              data-audience="{{ $movie->audience }}"
+              data-poster="{{ $movie->poster }}"
+              data-bookings="{{ $movie->booking_items_count ?? 0 }}"
+              data-is-active="0"
+              data-showtimes='@json($showtimeValues)'>
+            <div class="admin-movie__header">
+              <div>
+                <h3 class="admin-collection__title">{{ $movie->title }}</h3>
+                <p class="admin-collection__subtitle">
+                  ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> • 
+                  <span class="admin-movie__audience">{{ $movie->audience }}</span> • 
+                  <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
+                </p>
+              </div>
+              <span class="badge badge--inactive admin-movie__status">Archived</span>
+            </div>
+            <div class="admin-movie__showtimes">
+              @if(count($showtimeDisplay))
+                @foreach($showtimeDisplay as $displayTime)
+                  <span class="showtime-chip showtime-chip--static">{{ $displayTime }}</span>
+                @endforeach
+              @else
+                <span class="admin-movie__empty">No showtimes scheduled</span>
+              @endif
+            </div>
+            <div class="admin-collection__actions" role="group" aria-label="Manage movie actions">
+              {{-- Edit disabled for archived titles to avoid confusion --}}
+              <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
+                @csrf
+                <input type="hidden" name="status" value="active">
+                <button type="submit" class="btn btn--ghost btn--sm admin-movie__unarchive">Unarchive</button>
+              </form>
+            </div>
+          </li>
+        @empty
+          <li class="admin-collection__empty">No archived movies</li>
         @endforelse
       </ul>
     </div>

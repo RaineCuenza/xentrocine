@@ -93,6 +93,16 @@
                     <input type="number" id="walkinPax" min="1" value="1">
                 </div>
 
+                <div class="form-group" style="max-width:240px;">
+                    <label>Payment Category</label>
+                    <select id="walkinCategory">
+                        <option value="regular" selected>Regular</option>
+                        <option value="senior">Senior</option>
+                        <option value="pwd">PWD</option>
+                    </select>
+                    <small class="muted">Senior and PWD get 20% discount.</small>
+                </div>
+
                 <!-- Customer Info -->
                 <div class="customer-info-form">
                     <h4>Customer Information</h4>
