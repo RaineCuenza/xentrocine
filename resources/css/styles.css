@@ -74,6 +74,7 @@ a{color:inherit; text-decoration:none}
 
 /* Footer/Layout */
 .container{max-width:clamp(1100px, 92vw, 1440px); margin:0 auto; padding:20px}
+.page-wrap{max-width:clamp(1100px, 92vw, 1440px); margin:0 auto; padding-top:20px}
 .site-footer{border-top:1px solid var(--outline); color:var(--muted); padding:18px 20px; text-align:center; margin-top:30px}
 
 /* Hero */
@@ -283,7 +284,7 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 .pax-field__input:focus{outline:none}
 .pax-field__input::-webkit-outer-spin-button,
 .pax-field__input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
-.pax-field__input[type=number]{-moz-appearance:textfield}
+.pax-field__input[type=number]{appearance:textfield; -moz-appearance:textfield}
 
 /* Larger click targets on desktop */
 @media (min-width:1024px){
@@ -634,8 +635,9 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 .admin-kpis{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
-  gap:16px;
-  margin:18px 0 24px;
+  gap:1rem;
+  margin:1.25rem 0 2rem;
+  max-width:100%;
 }
 .kpi{
   --kpi-color:var(--brand);
@@ -691,9 +693,10 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   --kpi-border:rgba(245,158,11,.32);
 }
 .admin-intro{
-  margin:12px 0 18px;
+  margin:0.75rem 0 0;
   color:rgba(231,237,243,.7);
   font-size:.95rem;
+  line-height:1.5;
 }
 .admin-grid{
   display:grid;
@@ -738,7 +741,7 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   letter-spacing:.05em;
   text-transform:uppercase;
 }
-.admin-panel__body{display:grid; gap:22px;}
+.admin-panel__body{display:grid; gap:1rem;}
 .admin-form{display:grid; gap:18px;}
 .admin-form__grid{
   display:grid;
@@ -787,7 +790,7 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 .admin-price-control input:focus{outline:none}
 .admin-price-control input::-webkit-inner-spin-button,
 .admin-price-control input::-webkit-outer-spin-button{-webkit-appearance:none; margin:0}
-.admin-price-control input[type=number]{-moz-appearance:textfield}
+.admin-price-control input[type=number]{appearance:textfield; -moz-appearance:textfield}
 .admin-price-btn{
   width:42px;
   height:42px;
@@ -991,11 +994,12 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   margin-top:4px;
 }
 .booking-item--admin .booking-item__detail{
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px 18px;
+  display:grid;
+  grid-template-columns:2fr 1.5fr 1.5fr 1fr 0.8fr;
+  gap:12px;
   color:rgba(231,237,243,.7);
   font-size:.9rem;
+  align-items:center;
 }
 .booking-item--admin .booking-item__footer{
   margin-top:12px;
@@ -1003,6 +1007,10 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   border-top:1px solid rgba(255,255,255,.08);
   color:rgba(231,237,243,.65);
   font-size:.85rem;
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
 }
 .booking-item__total{font-weight:600;}
 .booking-item--empty{
@@ -1012,21 +1020,63 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   background:rgba(12,14,18,.6);
 }
 
+/* Notifications styles removed (panel no longer used on booking page) */
+
 /* Utils */
 .ticks{line-height:1.9}
 .ticks li{margin-bottom:6px}
 .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+/* Reusable KPI/Stat Card Component (matches Admin KPI style) */
+.stat-row{display:grid; grid-template-columns:repeat(2,1fr); gap:16px}
+@media (min-width:1024px){
+  .stat-row{grid-template-columns:repeat(4,1fr)}
+}
+.stat-card{position:relative; display:flex; align-items:center; gap:12px; padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,.08); box-shadow:0 12px 28px rgba(0,0,0,.35); overflow:hidden; isolation:isolate}
+.stat-card::after{content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; box-shadow:0 0 60px rgba(0,0,0,.35) inset}
+.stat-card:hover{transform:translateY(-1px); box-shadow:0 16px 32px rgba(0,0,0,.45); transition:transform .15s ease, box-shadow .15s ease}
+
+.stat__icon{width:40px; height:40px; display:grid; place-items:center; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:#111827}
+.stat__icon svg{width:22px; height:22px}
+.stat__meta{display:grid; gap:2px}
+.stat__label{text-transform:uppercase; letter-spacing:.06em; font-size:.78rem; color:#9aa3b2}
+.stat__value{font-size:1.25rem; font-weight:700; color:#e5e7eb}
+.stat__hint{font-size:.75rem; color:#7b8794}
+
+/* Color variants — gradients and subtle border tint */
+.stat--purple{background:linear-gradient(135deg, rgba(79,70,229,.25), rgba(147,51,234,.2)); border-color:rgba(147,51,234,.25)}
+.stat--blue{background:linear-gradient(135deg, rgba(29,78,216,.22), rgba(59,130,246,.18)); border-color:rgba(59,130,246,.25)}
+.stat--green{background:linear-gradient(135deg, rgba(22,163,74,.22), rgba(16,185,129,.18)); border-color:rgba(16,185,129,.25)}
+.stat--orange{background:linear-gradient(135deg, rgba(234,179,8,.22), rgba(245,158,11,.18)); border-color:rgba(245,158,11,.25)}
+
+/* Fit sizing utilities for stat cards */
+.stat-card.w-full{width:100%}
+.stat-card.h-fit{height:auto}
 
 /* Booking Layout - Responsive Two-Column */
 /* Align the sidebar with the content below the sticky header.
   Flexible column sizing based on screen width for optimal viewing. */
 
 /* Default: Single column for very small screens */
-.booking-layout{display:grid; grid-template-columns:1fr; gap:20px; margin-top:0; align-items:start}
-.booking-main{min-width:0}
-.booking-sidebar{position:static}
-.booking-sidebar .my-bookings{background:var(--panel); border:1px solid var(--outline); border-radius:14px; padding:16px; max-height:none}
-.booking-list{list-style:none; padding:0; display:grid; gap:10px}
+/* New responsive grid for booking page */
+.grid{display:grid}
+.gap-6{gap:1.5rem}
+.gap-8{gap:2rem}
+.mt-8{margin-top:2rem}
+.grid-cols-1{grid-template-columns:1fr}
+/* Tailwind-like utilities for booking layout */
+@media (min-width:1024px){
+  .lg\:grid-cols-2{grid-template-columns:repeat(2,1fr)}
+  .lg\:grid-cols-3{grid-template-columns:repeat(3,1fr)}
+  .lg\:col-span-2{grid-column:span 2 / span 2}
+}
+.panel{background:var(--panel); border:1px solid var(--outline); border-radius:14px; padding:16px}
+.panel__title{margin:0 0 .5rem 0}
+.booking-list{list-style:none; padding:0; margin:0; display:grid; gap:10px}
+
+/* Sizing utilities */
+.w-full{width:100%}
+.h-fit{height:auto}
 
 /* When My Bookings is stacked below (no sidebar), keep panel styling */
 .my-bookings{background:var(--panel); border:1px solid var(--outline); border-radius:14px; padding:16px; margin:16px 0}
@@ -1070,39 +1120,22 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 .verification-banner button:hover{background:#fef3c7}
 
 /* Tablet and above: Two columns with 60/40 split */
-@media (min-width:768px){
-  .booking-layout{grid-template-columns:1.5fr 1fr; gap:20px}
-  /* Sidebar should be static and aligned to top for balance */
-  .booking-sidebar{position:static; top:auto; align-self:start}
-  .booking-sidebar .my-bookings{max-height:none; overflow:visible}
-  /* Let summary use the column width on booking page */
-  .booking-main .summary{max-width:none}
-}
+/* Booking grid handled by utilities above */
 
 /* Desktop: Two columns with 65/35 split */
 @media (min-width:1024px){
-  /* Use simple 2fr/1fr ratio for broader browser compatibility */
-  .booking-layout{grid-template-columns:2fr 1fr; gap:24px}
   .grid-4{grid-template-columns:repeat(3,1fr)}
   .legend{flex-wrap:wrap}
 }
 
 /* Large screens: Two columns with 70/30 split */
-@media (min-width:1280px){
-  .booking-layout{grid-template-columns:2fr 1fr; gap:28px}
-}
+/* Redundant booking grid at 1280px removed */
 
 /* Extra wide screens: Cap the sidebar width, let main content grow */
-@media (min-width:1600px){
-  /* Maintain rule-of-thirds proportion while giving breathing room */
-  .booking-layout{grid-template-columns:2fr 1fr; gap:32px}
-  .booking-sidebar .my-bookings{max-height:none}
-}
+/* Redundant booking grid at 1600px removed */
 
 @media (max-width:767px){
-  .booking-layout{grid-template-columns:1fr; gap:16px}
-  .booking-sidebar{position:static}
-  .booking-sidebar .my-bookings{max-height:none}
+  .grid-cols-1{grid-template-columns:1fr}
 }
 @media (max-width:720px){
   .hide-mobile{display:none}
@@ -1207,6 +1240,10 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   }
   .admin-collection__actions .btn{width:100%}
   .booking-item--admin{padding:18px}
+  .booking-item--admin .booking-item__detail{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
   .container{padding:16px}
   .row{grid-template-columns:1fr}
   .row .btn{width:100%}

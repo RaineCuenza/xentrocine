@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MovieController;
@@ -17,7 +18,15 @@ use App\Http\Controllers\CartController;
 
 // Page Routes (serve Blade templates with data from controllers)
 Route::get('/', [PageController::class, 'index'])->name('home');
-Route::get('/booking', [PageController::class, 'booking'])->name('booking');
+Route::middleware(['auth', \App\Http\Middleware\NotAdmin::class])->group(function () {
+    Route::get('/booking', [PageController::class, 'booking'])->name('booking');
+    // Web Cart routes (form posts)
+    Route::post('/cart/add', [CartController::class, 'store'])->name('cart.add');
+    Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
+    Route::post('/cart/{index}/delete', [CartController::class, 'destroy'])->name('cart.remove');
+    // Web Booking checkout
+    Route::post('/bookings/place', [BookingController::class, 'store'])->name('bookings.place');
+});
 Route::get('/login', [PageController::class, 'login'])->name('login');
 Route::get('/signup', [PageController::class, 'signup'])->name('signup');
 Route::get('/admin', [PageController::class, 'admin'])->name('admin');
@@ -35,13 +44,7 @@ Route::post('/login', [AuthController::class, 'webLogin'])->name('auth.login.sub
 Route::post('/signup', [AuthController::class, 'webSignup'])->name('auth.signup.submit');
 Route::post('/logout', [AuthController::class, 'webLogout'])->name('auth.logout');
 
-// Web Cart routes (form posts)
-Route::post('/cart/add', [CartController::class, 'store'])->name('cart.add');
-Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
-Route::post('/cart/{index}/delete', [CartController::class, 'destroy'])->name('cart.remove');
-
-// Web Booking checkout
-Route::post('/bookings/place', [BookingController::class, 'store'])->name('bookings.place');
+// Move cart and booking routes into not.admin group above
 
 // API Routes (JSON responses for AJAX calls)
 Route::prefix('api')->group(function () {
@@ -60,6 +63,7 @@ Route::prefix('api')->group(function () {
     // Movie routes
     Route::prefix('movies')->group(function () {
         Route::get('/', [MovieController::class, 'index']);
+        Route::get('/showing', [MovieController::class, 'showingNow']);
         Route::get('/{id}', [MovieController::class, 'show']);
         Route::post('/', [MovieController::class, 'store']);
         Route::put('/{id}', [MovieController::class, 'update']);
@@ -77,10 +81,10 @@ Route::prefix('api')->group(function () {
     // Booking routes
     Route::prefix('bookings')->group(function () {
         Route::get('/', [BookingController::class, 'index']);
-        Route::post('/', [BookingController::class, 'store']);
+    Route::post('/', [BookingController::class, 'store'])->middleware(['auth', \App\Http\Middleware\NotAdmin::class]);
         Route::put('/{id}/cancel', [BookingController::class, 'cancel']);
         Route::delete('/reset', [BookingController::class, 'reset']);
-        Route::post('/scan', [BookingController::class, 'scan']);
+        Route::post('/scan', [BookingController::class, 'scan'])->middleware(['auth', \App\Http\Middleware\NotAdmin::class]);
     });
 
     // Seat availability routes
@@ -102,7 +106,7 @@ Route::prefix('api')->group(function () {
 // Admin web actions (forms) - simple wrappers
 Route::middleware(['auth'])->group(function () {
     Route::post('/admin/movies', function (\Illuminate\Http\Request $request) {
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
             return redirect()->route('home')->with('error', 'Unauthorized');
         }
         $validated = $request->validate([
@@ -111,13 +115,27 @@ Route::middleware(['auth'])->group(function () {
             'poster' => 'nullable|string',
             'audience' => 'required|in:G,PG,R-13,R-16,R-18',
             'times' => 'required|string',
+            // New listing window fields
+            'listing_start' => 'required|date',
+            'listing_end' => 'required|date|after_or_equal:listing_start',
         ]);
+
+        // Enforce a maximum of 30 days run from start to end
+        $start = \Carbon\Carbon::parse($validated['listing_start']);
+        $end = \Carbon\Carbon::parse($validated['listing_end']);
+        if ($end->gt($start->copy()->addDays(30))) {
+            return back()->withErrors([
+                'listing_end' => 'A movie can only run for a maximum of 1 month from its start date.'
+            ])->withInput();
+        }
         // Use API controller logic but via models directly to avoid JSON
         $movie = App\Models\Movie::create([
             'title' => trim($validated['title']),
             'price' => $validated['price'],
             'poster' => $validated['poster'] ?? null,
             'audience' => $validated['audience'],
+            'listing_start' => $start->toDateString(),
+            'listing_end' => $end->toDateString(),
         ]);
         foreach (array_filter(array_map('trim', explode(',', $validated['times']))) as $time) {
             App\Models\Showtime::create(['movie_id' => $movie->id, 'showtime' => $time]);
@@ -126,7 +144,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::post('/admin/movies/{id}/status', function (\Illuminate\Http\Request $request, $id) {
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
             $error = ['error' => 'Unauthorized'];
             return $request->expectsJson()
                 ? response()->json($error, 403)
@@ -162,7 +180,7 @@ Route::middleware(['auth'])->group(function () {
     // Remove hard delete in favor of archive/unarchive via status route above
 
     Route::post('/admin/bookings/{id}/cancel', function ($id) {
-        if (!Auth::check() || Auth::user()->role !== 'admin') {
+        if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
             return redirect()->route('home')->with('error', 'Unauthorized');
         }
         $booking = App\Models\Booking::find($id);
@@ -172,3 +190,18 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('admin')->with('message', 'Booking cancelled');
     });
 });
+
+// Local-only test mail route to verify SMTP connectivity
+if (app()->environment('local')) {
+    Route::get('/dev/test-mail', function () {
+        $to = env('MAIL_TEST_TO', 'to@example.com');
+        try {
+            Mail::raw('XentroCine test email: If you see this in Mailtrap, SMTP is working.', function ($message) use ($to) {
+                $message->to($to)->subject('XentroCine SMTP Test');
+            });
+            return response('Test mail dispatched to '.$to, 200);
+        } catch (\Throwable $e) {
+            return response('Mail error: '.$e->getMessage(), 500);
+        }
+    })->name('dev.test-mail');
+}

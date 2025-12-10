@@ -51,8 +51,11 @@ class AuthController extends Controller
                 'message' => 'Account created! Check your email to verify your account.',
             ]);
         } catch (ValidationException $e) {
+            $errors = $e->errors();
+            $first = null;
+            foreach ($errors as $field => $msgs) { $first = $msgs[0] ?? null; break; }
             return response()->json([
-                'error' => $e->validator->errors()->first(),
+                'error' => $first ?? 'Invalid input',
             ], 400);
         } catch (\Exception $e) {
             return response()->json([
@@ -95,8 +98,11 @@ class AuthController extends Controller
                 ],
             ]);
         } catch (ValidationException $e) {
+            $errors = $e->errors();
+            $first = null;
+            foreach ($errors as $field => $msgs) { $first = $msgs[0] ?? null; break; }
             return response()->json([
-                'error' => $e->validator->errors()->first(),
+                'error' => $first ?? 'Invalid input',
             ], 400);
         } catch (\Exception $e) {
             return response()->json([
@@ -139,9 +145,20 @@ class AuthController extends Controller
 
             Auth::login($user);
             $request->session()->regenerate();
+
+            // Role-based landing: avoid sending admins back to /booking via intended()
+            if (($user->role ?? 'client') === 'admin') {
+                return redirect()->route('admin');
+            }
+            if (in_array(($user->role ?? 'client'), ['staff'])) {
+                // Staff/cashier head to staff portal
+                return redirect()->route('staff');
+            }
+
+            // Default: return to intended page or home
             return redirect()->intended(route('home'));
         } catch (ValidationException $e) {
-            return back()->withErrors($e->validator->errors())->withInput();
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             return back()->withErrors(['email' => 'Server error during login'])->withInput();
         }
@@ -171,7 +188,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
             return redirect()->route('booking')->with('message', 'Account created! Please verify your email.');
         } catch (ValidationException $e) {
-            return back()->withErrors($e->validator->errors())->withInput();
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             return back()->withErrors(['email' => 'Server error during signup'])->withInput();
         }
@@ -193,16 +210,17 @@ class AuthController extends Controller
      */
     public function session(Request $request)
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
         if ($user) {
             return response()->json([
                 'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                    'email_verified' => !is_null($user->email_verified_at),
+                    'id' => $user->id ?? null,
+                    'name' => $user->name ?? '',
+                    'email' => $user->email ?? '',
+                    'role' => $user->role ?? 'client',
+                    'email_verified' => !is_null($user->email_verified_at ?? null),
                 ],
             ]);
         }
@@ -262,6 +280,10 @@ class AuthController extends Controller
 
         event(new \Illuminate\Auth\Events\Verified($user));
 
+        // After verification, route admins away from booking
+        if ($user->role === 'admin') {
+            return redirect('/admin?verified=success')->with('message', 'Email verified successfully.');
+        }
         return redirect('/booking?verified=success')->with('message', 'Email verified successfully! You can now book tickets.');
     }
 }

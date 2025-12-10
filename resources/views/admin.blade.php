@@ -4,6 +4,7 @@
 @section('page', 'admin')
 
 @section('content')
+<div class="admin-container">
 <h1>Admin Dashboard</h1>
 <p class="admin-intro">Monitor cinema performance and keep your catalogue up to date.</p>
 <div class="admin-kpis">
@@ -65,19 +66,18 @@
   </div>
 </div>
 
-<div class="admin-grid">
-  <section class="admin-panel">
-    <header class="admin-panel__header">
-      <div>
-        <h2>Manage Movies</h2>
-        <p class="admin-panel__hint">Create, update, or retire titles across your catalogue.</p>
-      </div>
-      <div class="admin-panel__tags">
-        <span class="admin-panel__tag"><span id="adminActiveCount">{{ $movies->where('is_active', true)->count() }}</span> active</span>
-        <span class="admin-panel__tag"><span id="adminArchivedCount">{{ $movies->where('is_active', false)->count() }}</span> archived</span>
-      </div>
-    </header>
-    <div class="admin-panel__body">
+<div class="admin-wrap">
+  <!-- First Row: Manage Movies + All Bookings -->
+  <div class="admin-row admin-row--two-cols">
+    <!-- Left: Manage Movies -->
+    <section class="admin-panel">
+        <header class="admin-panel__header">
+          <div>
+            <h2>Manage Movies</h2>
+            <p class="admin-panel__hint">Create, update, or retire titles across your catalogue.</p>
+          </div>
+        </header>
+        <div class="admin-panel__body">
       <form action="{{ url('/admin/movies') }}" method="POST" class="admin-form" novalidate>
         @csrf
         <div class="admin-form__grid">
@@ -107,6 +107,24 @@
             <span class="admin-field__label">Poster</span>
             <input name="poster" type="text" placeholder="/images/movie.jpg or full URL" />
           </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Listing start</span>
+            <input name="listing_start" id="listing_start" type="date" value="{{ old('listing_start', date('Y-m-d')) }}" min="{{ date('Y-m-d') }}" required />
+          </label>
+          <div class="admin-field">
+            <div style="display:flex;align-items:flex-end;gap:.5rem;">
+              <label style="flex:1">
+                <span class="admin-field__label">Listing end</span>
+                <input name="listing_end" id="listing_end" type="date" value="{{ old('listing_end', date('Y-m-d')) }}" required />
+              </label>
+              <div class="showtime-presets" style="margin-bottom:2px">
+                <button type="button" class="preset-btn" data-duration="14">2 weeks</button>
+                <button type="button" class="preset-btn" data-duration="21">3 weeks</button>
+                <button type="button" class="preset-btn" data-duration="30">1 month</button>
+              </div>
+            </div>
+            <small id="listing_error" class="muted" style="color:#fda4af;display:none">A movie can only run for a maximum of 1 month from its start date.</small>
+          </div>
           <div class="admin-field admin-field--wide">
             <span class="admin-field__label">Showtimes</span>
             <div class="showtime-builder" data-showtime-builder data-builder-context="create">
@@ -126,14 +144,150 @@
             </div>
           </div>
         </div>
-        <div class="admin-form__actions">
-          <button class="btn btn--primary" type="submit">Add Movie</button>
+          <div class="admin-form__actions">
+            <button class="btn btn--primary" type="submit">Add Movie</button>
+          </div>
+        </form>
+        </div>
+      </section>
+
+    <section class="admin-panel" style="min-height: 100%;">
+    <header class="admin-panel__header">
+      <div>
+        <h2>All Bookingss</h2>
+        <p class="admin-panel__hint">Recent reservations with current payment status.</p>
+      </div>
+      <span class="admin-panel__tag">{{ method_exists($bookings,'total') ? $bookings->total() : $bookings->count() }} on record</span>
+    </header>
+        <div class="admin-panel__body">
+      <!-- Bookings Filters -->
+      <form method="GET" action="{{ route('admin') }}" class="filters" style="margin-bottom:1rem">
+        <input type="text" name="b_q" value="{{ $filters['b_q'] ?? '' }}" placeholder="Search movie title" />
+        @php $bs = $filters['b_status'] ?? 'all'; @endphp
+        <select name="b_status">
+          <option value="all" {{ ($bs==='all')?'selected':'' }}>All</option>
+          <option value="Paid" {{ ($bs==='Paid')?'selected':'' }}>Paid</option>
+          <option value="Pending" {{ ($bs==='Pending')?'selected':'' }}>Pending</option>
+          <option value="Cancelled" {{ ($bs==='Cancelled')?'selected':'' }}>Cancelled</option>
+        </select>
+        <input type="date" name="b_from" value="{{ $filters['b_from'] ?? '' }}" />
+        <input type="date" name="b_to" value="{{ $filters['b_to'] ?? '' }}" />
+        <div class="row" style="grid-template-columns:auto auto auto;gap:.5rem">
+          <button type="submit" class="btn btn--ghost">Apply</button>
+          <a href="{{ route('admin') }}" class="btn btn--ghost">Clear filters</a>
+          @if(($filters['b_q']??'')!=='' || ($filters['b_status']??'all')!=='all' || ($filters['b_from']??null) || ($filters['b_to']??null))
+            <span class="admin-panel__tag">Filters applied</span>
+          @endif
         </div>
       </form>
-      
-      <h3 style="margin-top:0.5rem">Active Movies</h3>
-      <ul id="adminMovieList" class="admin-collection">
-        @forelse($movies->where('is_active', true) as $movie)
+
+          <ul id="adminBookingList" class="booking-list booking-list--dense panel-scroll">
+        @forelse($bookings as $booking)
+          <li class="booking-item booking-item--admin">
+            <div class="booking-item__header">
+              <div>
+                <strong class="booking-item__title">{{ $booking->name }}</strong>
+                <span class="booking-item__subtitle">{{ $booking->email }}</span>
+              </div>
+              <span class="badge badge--{{ strtolower($booking->status) }}">{{ $booking->status }}</span>
+            </div>
+            @foreach($booking->items as $item)
+              <div class="booking-item__detail">
+                <span>{{ $item->movie_title }}</span>
+                <span>{{ \Carbon\Carbon::parse($item->booking_date)->format('M d, Y') }}</span>
+                <span>
+                  @php
+                    $start = date('H:i', strtotime($item->showtime));
+                    $duration = optional($item->movie)->duration ?? 90;
+                    $end = \Carbon\Carbon::createFromFormat('H:i', $start)->addMinutes($duration)->format('H:i');
+                  @endphp
+                  {{ $start }}–{{ $end }}
+                </span>
+                <span>{{ $item->cinema }}</span>
+                <span>{{ $item->quantity }} pax</span>
+              </div>
+            @endforeach
+            <div class="booking-item__footer">
+              <span class="booking-item__total">Total: ₱{{ number_format($booking->total, 2) }}</span>
+              <span class="booking-item__timestamp">{{ $booking->created_at->format('M d, Y g:i A') }}</span>
+                  @if($booking->payment_method === 'digital' && $booking->gcash_receipt_path)
+                    <span><a href="{{ asset('storage/' . $booking->gcash_receipt_path) }}" target="_blank">View GCash receipt</a></span>
+                  @endif
+            </div>
+          </li>
+        @empty
+          <li class="booking-item booking-item--empty">No bookings yet</li>
+        @endforelse
+          </ul>
+          @if(method_exists($bookings,'links'))
+            <div class="pager mt-4">
+              @php
+                $bStart = max(1, $bookings->currentPage() - 2);
+                $bEnd = min($bookings->lastPage(), $bookings->currentPage() + 2);
+              @endphp
+              <div class="pager__inner">
+                @if($bookings->onFirstPage())
+                  <span class="pager__link is-disabled">« Previous</span>
+                @else
+                  <a class="pager__link" href="{{ $bookings->previousPageUrl() }}">« Previous</a>
+                @endif
+
+                @for($i = $bStart; $i <= $bEnd; $i++)
+                  @if($i === $bookings->currentPage())
+                    <span class="pager__page is-active">{{ $i }}</span>
+                  @else
+                    <a class="pager__page" href="{{ $bookings->url($i) }}">{{ $i }}</a>
+                  @endif
+                @endfor
+
+                @if($bookings->hasMorePages())
+                  <a class="pager__link" href="{{ $bookings->nextPageUrl() }}">Next »</a>
+                @else
+                  <span class="pager__link is-disabled">Next »</span>
+                @endif
+              </div>
+            </div>
+          @endif
+        </div>
+      </section>
+  </div>
+
+  <!-- Second Row: Active Movies (full width) -->
+  <div class="admin-row admin-row--full">
+      <section class="admin-panel">
+        <header class="admin-panel__header">
+          <div>
+            <h2>Active Movies</h2>
+            <p class="admin-panel__hint">Browse and manage current listings.</p>
+          </div>
+          <div class="admin-panel__tags">
+            <span class="admin-panel__tag"><span id="adminActiveCount">{{ $kpis['movies'] }}</span> Active</span>
+          </div>
+        </header>
+        <div class="admin-panel__body">
+          <!-- Movies Filters -->
+          <form method="GET" action="{{ route('admin') }}" class="filters" style="margin-top:0.25rem">
+            <input type="text" name="m_q_a" value="{{ $filters['m_q_a'] ?? '' }}" placeholder="Search title" />
+            <select name="m_audience_a">
+              @php $aud = $filters['m_audience_a'] ?? 'all'; @endphp
+              <option value="all" {{ ($aud==='all')?'selected':'' }}>All audiences</option>
+              <option value="G" {{ ($aud==='G')?'selected':'' }}>G</option>
+              <option value="PG" {{ ($aud==='PG')?'selected':'' }}>PG</option>
+              <option value="R-13" {{ ($aud==='R-13')?'selected':'' }}>R-13</option>
+              <option value="R-16" {{ ($aud==='R-16')?'selected':'' }}>R-16</option>
+              <option value="R-18" {{ ($aud==='R-18')?'selected':'' }}>R-18</option>
+            </select>
+            <div class="row" style="grid-template-columns:auto auto auto;gap:.5rem">
+              <button type="submit" class="btn btn--ghost">Apply</button>
+              <a href="{{ route('admin') }}" class="btn btn--ghost">Clear filters</a>
+              @if(($filters['m_q_a']??'')!=='' || ($filters['m_audience_a']??'all')!=='all')
+                <span class="admin-panel__tag">Filters applied</span>
+              @endif
+            </div>
+          </form>
+
+          <ul id="adminMovieList" class="admin-collection panel-scroll">
+        @forelse($moviesActive as $movie)
           @php
             $rawTimes = $movie->showtimes->pluck('showtime')
               ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
@@ -141,7 +295,15 @@
               ->sort()
               ->values();
             $showtimeValues = $rawTimes->toArray();
-            $showtimeDisplay = $rawTimes->map(fn($time) => \Carbon\Carbon::createFromFormat('H:i', $time)->format('g:i A'))->toArray();
+            $showtimeDisplay = $movie->showtimes->map(function($st){ return $st->formatted_range; })->toArray();
+            $ls = $movie->listing_start ? \Carbon\Carbon::parse($movie->listing_start) : null;
+            $le = $movie->listing_end ? \Carbon\Carbon::parse($movie->listing_end) : null;
+            $rangeText = '';
+            if ($ls && $le) {
+              $days = $ls->diffInDays($le);
+              $label = $days === 30 ? '1 month' : ($days % 7 === 0 ? ($days/7).' week'.(($days/7)>1?'s':'') : $days.' days');
+              $rangeText = 'Showing: '.$ls->format('M d, Y').' – '.$le->format('M d, Y').' ('.$label.')';
+            }
           @endphp
           <li class="admin-collection__item {{ $movie->is_active ? '' : 'admin-collection__item--inactive' }}"
               data-movie-id="{{ $movie->id }}"
@@ -159,6 +321,9 @@
                   ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> • 
                   <span class="admin-movie__audience">{{ $movie->audience }}</span> • 
                   <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
+                  @if($rangeText)
+                    <br/><span class="muted">{{ $rangeText }}</span>
+                  @endif
                 </p>
               </div>
               <span class="badge {{ $movie->is_active ? 'badge--active' : 'badge--inactive' }} admin-movie__status">
@@ -247,109 +412,416 @@
         @empty
           <li class="admin-collection__empty">No active movies</li>
         @endforelse
-      </ul>
+          </ul>
 
-      <h3 style="margin-top:2rem">Archived Movies</h3>
-      <ul id="adminArchivedList" class="admin-collection">
-        @forelse($movies->where('is_active', false) as $movie)
-          @php
-            $rawTimes = $movie->showtimes->pluck('showtime')
-              ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
-              ->unique()
-              ->sort()
-              ->values();
-            $showtimeValues = $rawTimes->toArray();
-            $showtimeDisplay = $rawTimes->map(fn($time) => \Carbon\Carbon::createFromFormat('H:i', $time)->format('g:i A'))->toArray();
-          @endphp
-          <li class="admin-collection__item admin-collection__item--inactive"
-              data-movie-id="{{ $movie->id }}"
-              data-title="{{ $movie->title }}"
-              data-price="{{ $movie->price }}"
-              data-audience="{{ $movie->audience }}"
-              data-poster="{{ $movie->poster }}"
-              data-bookings="{{ $movie->booking_items_count ?? 0 }}"
-              data-is-active="0"
-              data-showtimes='@json($showtimeValues)'>
-            <div class="admin-movie__header">
-              <div>
-                <h3 class="admin-collection__title">{{ $movie->title }}</h3>
-                <p class="admin-collection__subtitle">
-                  ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> • 
-                  <span class="admin-movie__audience">{{ $movie->audience }}</span> • 
-                  <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
-                </p>
+          @if(method_exists($moviesActive,'links'))
+            <div class="pager mt-4">
+              @php
+                $mStart = max(1, $moviesActive->currentPage() - 2);
+                $mEnd = min($moviesActive->lastPage(), $moviesActive->currentPage() + 2);
+              @endphp
+              <div class="pager__inner">
+                @if($moviesActive->onFirstPage())
+                  <span class="pager__link is-disabled">« Previous</span>
+                @else
+                  <a class="pager__link" href="{{ $moviesActive->previousPageUrl() }}">« Previous</a>
+                @endif
+
+                @for($i = $mStart; $i <= $mEnd; $i++)
+                  @if($i === $moviesActive->currentPage())
+                    <span class="pager__page is-active">{{ $i }}</span>
+                  @else
+                    <a class="pager__page" href="{{ $moviesActive->url($i) }}">{{ $i }}</a>
+                  @endif
+                @endfor
+
+                @if($moviesActive->hasMorePages())
+                  <a class="pager__link" href="{{ $moviesActive->nextPageUrl() }}">Next »</a>
+                @else
+                  <span class="pager__link is-disabled">Next »</span>
+                @endif
               </div>
-              <span class="badge badge--inactive admin-movie__status">Archived</span>
             </div>
-            <div class="admin-movie__showtimes">
-              @if(count($showtimeDisplay))
-                @foreach($showtimeDisplay as $displayTime)
-                  <span class="showtime-chip showtime-chip--static">{{ $displayTime }}</span>
-                @endforeach
-              @else
-                <span class="admin-movie__empty">No showtimes scheduled</span>
+          @endif
+        </div>
+      </section>
+
+      <!-- Archived Movies Card -->
+      <section class="admin-panel">
+        <header class="admin-panel__header">
+          <div>
+            <h2>Archived Movies</h2>
+            <p class="admin-panel__hint">Previously listed titles. Unarchive to make active.</p>
+          </div>
+          <div class="admin-panel__tags">
+            <span class="admin-panel__tag"><span id="adminArchivedCount">{{ $kpis['movies_archived'] }}</span> Archived</span>
+          </div>
+        </header>
+        <div class="admin-panel__body">
+          <!-- Archived Movies Filters -->
+          <form method="GET" action="{{ route('admin') }}" class="filters" style="margin-top:0.25rem">
+            <input type="text" name="m_q_r" value="{{ $filters['m_q_r'] ?? '' }}" placeholder="Search title" />
+            <select name="m_audience_r">
+              @php $audR = $filters['m_audience_r'] ?? 'all'; @endphp
+              <option value="all" {{ ($audR==='all')?'selected':'' }}>All audiences</option>
+              <option value="G" {{ ($audR==='G')?'selected':'' }}>G</option>
+              <option value="PG" {{ ($audR==='PG')?'selected':'' }}>PG</option>
+              <option value="R-13" {{ ($audR==='R-13')?'selected':'' }}>R-13</option>
+              <option value="R-16" {{ ($audR==='R-16')?'selected':'' }}>R-16</option>
+              <option value="R-18" {{ ($audR==='R-18')?'selected':'' }}>R-18</option>
+            </select>
+            <div class="row" style="grid-template-columns:auto auto auto;gap:.5rem">
+              <button type="submit" class="btn btn--ghost">Apply</button>
+              <a href="{{ route('admin') }}" class="btn btn--ghost">Clear filters</a>
+              @if(($filters['m_q_r']??'')!=='' || ($filters['m_audience_r']??'all')!=='all')
+                <span class="admin-panel__tag">Filters applied</span>
               @endif
             </div>
-            <div class="admin-collection__actions" role="group" aria-label="Manage movie actions">
-              {{-- Edit disabled for archived titles to avoid confusion --}}
-              <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
-                @csrf
-                <input type="hidden" name="status" value="active">
-                <button type="submit" class="btn btn--ghost btn--sm admin-movie__unarchive">Unarchive</button>
-              </form>
-            </div>
-          </li>
-        @empty
-          <li class="admin-collection__empty">No archived movies</li>
-        @endforelse
-      </ul>
-    </div>
-  </section>
+          </form>
 
-  <section class="admin-panel">
-    <header class="admin-panel__header">
-      <div>
-        <h2>All Bookings</h2>
-        <p class="admin-panel__hint">Recent reservations with current payment status.</p>
-      </div>
-      <span class="admin-panel__tag">{{ $bookings->count() }} on record</span>
-    </header>
-    <div class="admin-panel__body">
-      <ul id="adminBookingList" class="booking-list booking-list--dense">
-        @forelse($bookings as $booking)
-          <li class="booking-item booking-item--admin">
-            <div class="booking-item__header">
-              <div>
-                <strong class="booking-item__title">{{ $booking->name }}</strong>
-                <span class="booking-item__subtitle">{{ $booking->email }}</span>
+          <ul class="admin-collection panel-scroll">
+            @forelse($moviesArchived as $movie)
+              @php
+                $rawTimes = $movie->showtimes->pluck('showtime')
+                  ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
+                  ->unique()
+                  ->sort()
+                  ->values();
+                $showtimeValues = $rawTimes->toArray();
+                $showtimeDisplay = $movie->showtimes->map(function($st){ return $st->formatted_range; })->toArray();
+                $ls = $movie->listing_start ? \Carbon\Carbon::parse($movie->listing_start) : null;
+                $le = $movie->listing_end ? \Carbon\Carbon::parse($movie->listing_end) : null;
+                $rangeText = '';
+                if ($ls && $le) {
+                  $days = $ls->diffInDays($le);
+                  $label = $days === 30 ? '1 month' : ($days % 7 === 0 ? ($days/7).' week'.(($days/7)>1?'s':'') : $days.' days');
+                  $rangeText = 'Showing: '.$ls->format('M d, Y').' – '.$le->format('M d, Y').' ('.$label.')';
+                }
+              @endphp
+              <li class="admin-collection__item admin-collection__item--inactive"
+                  data-movie-id="{{ $movie->id }}"
+                  data-title="{{ $movie->title }}"
+                  data-price="{{ $movie->price }}"
+                  data-audience="{{ $movie->audience }}"
+                  data-poster="{{ $movie->poster }}"
+                  data-bookings="{{ $movie->booking_items_count ?? 0 }}"
+                  data-is-active="0"
+                  data-showtimes='@json($showtimeValues)'>
+                <div class="admin-movie__header">
+                  <div>
+                    <h3 class="admin-collection__title">{{ $movie->title }}</h3>
+                    <p class="admin-collection__subtitle">
+                      ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> • 
+                      <span class="admin-movie__audience">{{ $movie->audience }}</span> • 
+                      <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
+                      @if($rangeText)
+                        <br/><span class="muted">{{ $rangeText }}</span>
+                      @endif
+                    </p>
+                  </div>
+                  <span class="badge badge--inactive admin-movie__status">Inactive</span>
+                </div>
+                <div class="admin-movie__showtimes">
+                  @if(count($showtimeDisplay))
+                    @foreach($showtimeDisplay as $displayTime)
+                      <span class="showtime-chip showtime-chip--static">{{ $displayTime }}</span>
+                    @endforeach
+                  @else
+                    <span class="admin-movie__empty">No showtimes scheduled</span>
+                  @endif
+                </div>
+                <div class="admin-collection__actions" role="group" aria-label="Manage movie actions">
+                  <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
+                    @csrf
+                    <input type="hidden" name="status" value="active">
+                    <button type="submit" class="btn btn--primary btn--sm">Unarchive</button>
+                  </form>
+                </div>
+              </li>
+            @empty
+              <li class="admin-collection__empty">No archived movies</li>
+            @endforelse
+          </ul>
+
+          @if(method_exists($moviesArchived,'links'))
+            <div class="pager mt-4">
+              @php
+                $rStart = max(1, $moviesArchived->currentPage() - 2);
+                $rEnd = min($moviesArchived->lastPage(), $moviesArchived->currentPage() + 2);
+              @endphp
+              <div class="pager__inner">
+                @if($moviesArchived->onFirstPage())
+                  <span class="pager__link is-disabled">« Previous</span>
+                @else
+                  <a class="pager__link" href="{{ $moviesArchived->previousPageUrl() }}">« Previous</a>
+                @endif
+
+                @for($i = $rStart; $i <= $rEnd; $i++)
+                  @if($i === $moviesArchived->currentPage())
+                    <span class="pager__page is-active">{{ $i }}</span>
+                  @else
+                    <a class="pager__page" href="{{ $moviesArchived->url($i) }}">{{ $i }}</a>
+                  @endif
+                @endfor
+
+                @if($moviesArchived->hasMorePages())
+                  <a class="pager__link" href="{{ $moviesArchived->nextPageUrl() }}">Next »</a>
+                @else
+                  <span class="pager__link is-disabled">Next »</span>
+                @endif
               </div>
-              <span class="badge badge--{{ strtolower($booking->status) }}">{{ $booking->status }}</span>
             </div>
-            @foreach($booking->items as $item)
-              <div class="booking-item__detail">
-                <span>{{ $item->movie_title }}</span>
-                <span>{{ \Carbon\Carbon::parse($item->booking_date)->format('M d, Y') }}</span>
-                <span>{{ date('g:i A', strtotime($item->showtime)) }}</span>
-                <span>{{ $item->cinema }}</span>
-                <span>{{ $item->quantity }} pax</span>
+          @endif
+        </div>
+      </section>
+  </div>
+
+  <!-- Third Row: Archived Movies (full width) -->
+  <div class="admin-row admin-row--full">
+      <section class="admin-panel">
+        <header class="admin-panel__header">
+          <div>
+            <h2>Archived Movies</h2>
+            <p class="admin-panel__hint">Previously listed titles. Unarchive to make active.</p>
+          </div>
+          <div class="admin-panel__tags">
+            <span class="admin-panel__tag"><span id="adminArchivedCount">{{ $kpis['movies_archived'] }}</span> Archived</span>
+          </div>
+        </header>
+        <div class="admin-panel__body">
+          <!-- Archived Movies Filters -->
+          <form method="GET" action="{{ route('admin') }}" class="filters" style="margin-top:0.25rem">
+            <input type="text" name="m_q_r" value="{{ $filters['m_q_r'] ?? '' }}" placeholder="Search title" />
+            <select name="m_audience_r">
+              @php $audR = $filters['m_audience_r'] ?? 'all'; @endphp
+              <option value="all" {{ ($audR==='all')?'selected':'' }}>All audiences</option>
+              <option value="G" {{ ($audR==='G')?'selected':'' }}>G</option>
+              <option value="PG" {{ ($audR==='PG')?'selected':'' }}>PG</option>
+              <option value="R-13" {{ ($audR==='R-13')?'selected':'' }}>R-13</option>
+              <option value="R-16" {{ ($audR==='R-16')?'selected':'' }}>R-16</option>
+              <option value="R-18" {{ ($audR==='R-18')?'selected':'' }}>R-18</option>
+            </select>
+            <div class="row" style="grid-template-columns:auto auto auto;gap:.5rem">
+              <button type="submit" class="btn btn--ghost">Apply</button>
+              <a href="{{ route('admin') }}" class="btn btn--ghost">Clear filters</a>
+              @if(($filters['m_q_r']??'')!=='' || ($filters['m_audience_r']??'all')!=='all')
+                <span class="admin-panel__tag">Filters applied</span>
+              @endif
+            </div>
+          </form>
+
+          <ul class="admin-collection panel-scroll">
+            @forelse($moviesArchived as $movie)
+              @php
+                $rawTimes = $movie->showtimes->pluck('showtime')
+                  ->map(fn($time) => \Carbon\Carbon::parse($time)->format('H:i'))
+                  ->unique()
+                  ->sort()
+                  ->values();
+                $showtimeValues = $rawTimes->toArray();
+                $showtimeDisplay = $movie->showtimes->map(function($st){ return $st->formatted_range; })->toArray();
+                $ls = $movie->listing_start ? \Carbon\Carbon::parse($movie->listing_start) : null;
+                $le = $movie->listing_end ? \Carbon\Carbon::parse($movie->listing_end) : null;
+                $rangeText = '';
+                if ($ls && $le) {
+                  $days = $ls->diffInDays($le);
+                  $label = $days === 30 ? '1 month' : ($days % 7 === 0 ? ($days/7).' week'.(($days/7)>1?'s':'') : $days.' days');
+                  $rangeText = 'Showing: '.$ls->format('M d, Y').' – '.$le->format('M d, Y').' ('.$label.')';
+                }
+              @endphp
+              <li class="admin-collection__item admin-collection__item--inactive"
+                  data-movie-id="{{ $movie->id }}"
+                  data-title="{{ $movie->title }}"
+                  data-price="{{ $movie->price }}"
+                  data-audience="{{ $movie->audience }}"
+                  data-poster="{{ $movie->poster }}"
+                  data-bookings="{{ $movie->booking_items_count ?? 0 }}"
+                  data-is-active="0"
+                  data-showtimes='@json($showtimeValues)'>
+                <div class="admin-movie__header">
+                  <div>
+                    <h3 class="admin-collection__title">{{ $movie->title }}</h3>
+                    <p class="admin-collection__subtitle">
+                      ₱<span class="admin-movie__price">{{ number_format($movie->price, 2) }}</span> •
+                      <span class="admin-movie__audience">{{ $movie->audience }}</span> •
+                      <span class="admin-movie__bookings">{{ $movie->booking_items_count ?? 0 }}</span> bookings
+                      @if($rangeText)
+                        <br/><span class="muted">{{ $rangeText }}</span>
+                      @endif
+                    </p>
+                  </div>
+                  <span class="badge badge--inactive admin-movie__status">Inactive</span>
+                </div>
+                <div class="admin-movie__showtimes">
+                  @if(count($showtimeDisplay))
+                    @foreach($showtimeDisplay as $displayTime)
+                      <span class="showtime-chip showtime-chip--static">{{ $displayTime }}</span>
+                    @endforeach
+                  @else
+                    <span class="admin-movie__empty">No showtimes scheduled</span>
+                  @endif
+                </div>
+                <div class="admin-collection__actions" role="group" aria-label="Manage movie actions">
+                  <form action="{{ url('/admin/movies/'.$movie->id.'/status') }}" method="POST" style="display:inline">
+                    @csrf
+                    <input type="hidden" name="status" value="active">
+                    <button type="submit" class="btn btn--primary btn--sm">Unarchive</button>
+                  </form>
+                </div>
+              </li>
+            @empty
+              <li class="admin-collection__empty">No archived movies</li>
+            @endforelse
+          </ul>
+
+          @if(method_exists($moviesArchived,'links'))
+            <div class="pager mt-4">
+              @php
+                $rStart = max(1, $moviesArchived->currentPage() - 2);
+                $rEnd = min($moviesArchived->lastPage(), $moviesArchived->currentPage() + 2);
+              @endphp
+              <div class="pager__inner">
+                @if($moviesArchived->onFirstPage())
+                  <span class="pager__link is-disabled">« Previous</span>
+                @else
+                  <a class="pager__link" href="{{ $moviesArchived->previousPageUrl() }}">« Previous</a>
+                @endif
+
+                @for($i = $rStart; $i <= $rEnd; $i++)
+                  @if($i === $moviesArchived->currentPage())
+                    <span class="pager__page is-active">{{ $i }}</span>
+                  @else
+                    <a class="pager__page" href="{{ $moviesArchived->url($i) }}">{{ $i }}</a>
+                  @endif
+                @endfor
+
+                @if($moviesArchived->hasMorePages())
+                  <a class="pager__link" href="{{ $moviesArchived->nextPageUrl() }}">Next »</a>
+                @else
+                  <span class="pager__link is-disabled">Next »</span>
+                @endif
               </div>
-            @endforeach
-            <div class="booking-item__footer">
-              <span class="booking-item__total">Total: ₱{{ number_format($booking->total, 2) }}</span>
-              <span class="booking-item__timestamp">{{ $booking->created_at->format('M d, Y g:i A') }}</span>
             </div>
-          </li>
-        @empty
-          <li class="booking-item booking-item--empty">No bookings yet</li>
-        @endforelse
-      </ul>
-    </div>
-  </section>
+          @endif
+        </div>
+      </section>
+  </div>
 </div>
 @endsection
 
 @push('styles')
 <style>
+  /* Admin page container - clean, centered */
+  .admin-container {
+    max-width: 90rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  /* Admin page wrapper with consistent spacing */
+  .admin-wrap {
+    width: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Admin row containers */
+  .admin-row {
+    display: grid;
+    gap: 1.5rem;
+    align-items: start;
+    width: 100%;
+  }
+
+  /* Two-column row: Manage Movies + All Bookings */
+  .admin-row--two-cols {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 1024px) {
+    .admin-row--two-cols {
+      grid-template-columns: 58fr 42fr;
+      gap: 1.5rem;
+    }
+  }
+
+  /* Full-width row: Active Movies, Archived Movies */
+  .admin-row--full {
+    grid-template-columns: 1fr;
+  }
+
+  /* Responsive stacking on mobile/tablet */
+  @media (max-width: 1023px) {
+    .admin-row--two-cols {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Scrollable lists inside cards */
+  .panel-scroll{max-height:800px;overflow-y:auto;padding-right:6px}
+  .panel-scroll::-webkit-scrollbar{width:8px}
+  .panel-scroll::-webkit-scrollbar-thumb{background:#242a38;border-radius:8px}
+
+  /* Fix All Bookings panel spacing and height */
+  .admin-panel {
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .booking-list.panel-scroll {
+    margin-bottom: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .booking-list--dense {
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Remove extra bottom spacing from pagination */
+  .pager.mt-4 {
+    margin-top: 0.75rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Ensure admin panel body doesn't add extra space */
+  .admin-panel__body {
+    padding-bottom: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .admin-panel__body > *:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Ensure forms don't add extra margin */
+  .admin-panel__body > form {
+    margin-bottom: 0;
+  }
+
+  /* Fix inline form margin in bookings filter */
+  .admin-panel__body form[method="GET"] {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Compact pagination UI */
+  .pager{margin-top:1rem}
+  .pager__inner{display:flex;align-items:center;justify-content:center;gap:.4rem;color:#9aa3b2;font-size:.78rem}
+  .pager__link,.pager__page{display:inline-flex;align-items:center;justify-content:center;padding:.25rem .5rem;border-radius:.5rem;border:1px solid rgba(255,255,255,.08);background:#111827;color:#e5e7eb;text-decoration:none}
+  .pager__page.is-active{background:#1f2937;color:#fff;border-color:#334155;font-weight:700}
+  .pager__link.is-disabled{opacity:.45;pointer-events:none}
+  /* Patch default Laravel paginator SVG chevrons if any appear */
+  nav[role="navigation"] svg,.pagination svg{width:1rem;height:1rem}
+
     .showtime-builder {
         display: flex;
         flex-direction: column;
@@ -476,16 +948,85 @@
         color: #64748b;
         margin: 0;
     }
+
+    /* Booking List Item Alignment */
+    .booking-item--admin .booking-item__detail {
+        display: grid !important;
+        grid-template-columns: 2fr 1.5fr 1.5fr 1fr 0.8fr !important;
+        gap: 12px !important;
+        color: rgba(231,237,243,.7);
+        font-size: .9rem;
+        align-items: center !important;
+    }
+
+    .booking-item--admin .booking-item__footer {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255,255,255,.08);
+        color: rgba(231,237,243,.65);
+        font-size: .85rem;
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 12px !important;
+        align-items: center !important;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 720px) {
+        .booking-item--admin .booking-item__detail {
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+        }
+    }
 </style>
 @endpush
 
 @push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
             const movieList = document.getElementById('adminMovieList');
             const activeCountEl = document.getElementById('adminActiveCount');
             const builders = new WeakMap();
+      const startEl = document.getElementById('listing_start');
+      const endEl = document.getElementById('listing_end');
+      const errEl = document.getElementById('listing_error');
+
+      // Date range logic (max 30 days)
+      const setEndBounds = () => {
+        if (!startEl || !endEl) return;
+        const start = new Date(startEl.value || new Date());
+        const min = new Date(start);
+        const max = new Date(start);
+        max.setDate(max.getDate() + 30);
+        const toYMD = (d) => d.toISOString().slice(0,10);
+        endEl.min = toYMD(min);
+        endEl.max = toYMD(max);
+        if (!endEl.value || endEl.value < endEl.min) endEl.value = endEl.min;
+        if (endEl.value > endEl.max) endEl.value = endEl.max;
+        if (errEl) errEl.style.display = 'none';
+      };
+      startEl?.addEventListener('change', setEndBounds);
+      setEndBounds();
+
+      // Quick duration presets for end date
+      document.querySelectorAll('[data-duration]')?.forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!startEl || !endEl) return;
+          const days = parseInt(btn.getAttribute('data-duration') || '14', 10);
+          const start = new Date(startEl.value || new Date());
+          const max = new Date(start); max.setDate(max.getDate() + 30);
+          const end = new Date(start); end.setDate(end.getDate() + days);
+          const toYMD = (d) => d.toISOString().slice(0,10);
+          if (end > max) {
+            endEl.value = toYMD(max);
+            if (errEl) errEl.style.display = 'block';
+          } else {
+            endEl.value = toYMD(end);
+            if (errEl) errEl.style.display = 'none';
+          }
+        });
+      });
 
             const formatCurrency = (value) => {
                 const amount = Number(value) || 0;
@@ -681,11 +1222,7 @@
                 builders.set(root, builder);
             });
 
-            const updateActiveCount = () => {
-                if (!activeCountEl) return;
-                const activeItems = movieList.querySelectorAll('.admin-collection__item[data-is-active="1"]');
-                activeCountEl.textContent = activeItems.length;
-            };
+      const updateActiveCount = () => { /* counts displayed from KPIs; no-op */ };
 
             const ensureEmptyState = () => {
                 if (!movieList) return;

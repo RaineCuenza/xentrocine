@@ -57,8 +57,11 @@
                         href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
                 @endif
             @endguest
+            @php $role = auth()->check() ? auth()->user()->role : null; @endphp
+            @if ($role !== 'staff')
             <a class="nav__link @if (Route::currentRouteName() == 'about') nav__link--active @endif"
                 href="{{ route('about') }}">About</a>
+            @endif
             @auth
                 @if (auth()->user()->role === 'staff')
                     <a class="nav__link @if (Route::currentRouteName() == 'staff') nav__link--active @endif" href="{{ route('staff') }}">Cashier</a>
@@ -69,6 +72,44 @@
             @endauth
         </nav>
         <div class="account">
+            @auth
+                @if(isset($recentBookings))
+                    <div class="notif">
+                        <button id="notifBell" class="notif__bell" aria-label="Notifications" aria-expanded="false">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                            @php $pendingCount = $pendingRecentCount ?? ($recentBookings?->where('status','Pending')->count() ?? 0); @endphp
+                            @if($pendingCount > 0)
+                                <span class="notif__badge" aria-label="{{ $pendingCount }} pending notifications">{{ $pendingCount }}</span>
+                            @endif
+                        </button>
+                        <div id="notifDropdown" class="notif__dropdown" style="display:none">
+                            <div class="notif__header">Recent bookings</div>
+                            <ul class="notif__list">
+                                @forelse(($recentBookings ?? collect())->take(7) as $nb)
+                                    @php
+                                        $item = $nb->items->first();
+                                        $title = $item?->movie_title ?? 'Booking';
+                                        $dateStr = $item?->booking_date ? \Carbon\Carbon::parse($item->booking_date)->format('M d, Y') : $nb->created_at->format('M d, Y');
+                                        $start = $item?->showtime ? date('H:i', strtotime($item->showtime)) : null;
+                                        $duration = optional($item?->movie)->duration ?? 90;
+                                        $end = $start ? \Carbon\Carbon::createFromFormat('H:i', $start)->addMinutes($duration)->format('H:i') : null;
+                                    @endphp
+                                    <li class="notif__item {{ $nb->created_at->gt(now()->subDay()) ? 'is-new' : '' }}">
+                                        <a href="{{ route('booking') }}#my-bookings" class="notif__link">
+                                            <div class="notif__title">{{ $title }}</div>
+                                            <div class="notif__meta">{{ $dateStr }} @if($start && $end) • {{ $start }}–{{ $end }} @endif • {{ $item?->cinema ?? '—' }} • {{ $item?->quantity ?? 0 }} pax</div>
+                                            <span class="badge badge--{{ strtolower($nb->status) }}">{{ $nb->status }}</span>
+                                        </a>
+                                    </li>
+                                @empty
+                                    <li class="notif__empty">No recent bookings</li>
+                                @endforelse
+                            </ul>
+                            <div class="notif__footer"><a href="{{ route('booking') }}#my-bookings">View all bookings</a></div>
+                        </div>
+                    </div>
+                @endif
+            @endauth
             @auth
                 <span class="account__who">{{ auth()->user()->name }}</span>
                 <form action="{{ route('auth.logout') }}" method="POST" style="margin:0">
@@ -146,6 +187,25 @@
                 }
             });
         }
+        
+        // Notifications dropdown (if present)
+        (function(){
+            const bell = document.getElementById('notifBell');
+            const dd = document.getElementById('notifDropdown');
+            if(!bell || !dd) return;
+            const toggle = () => {
+                const open = dd.style.display === 'block';
+                dd.style.display = open ? 'none' : 'block';
+                bell.setAttribute('aria-expanded', (!open).toString());
+            };
+            bell.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+            document.addEventListener('click', (e)=>{
+                if(!dd.contains(e.target) && !bell.contains(e.target)){
+                    dd.style.display = 'none';
+                    bell.setAttribute('aria-expanded', 'false');
+                }
+            });
+        })();
         
         // Mobile account menu toggle
         const accountToggle = document.getElementById('mobileAccountToggle');

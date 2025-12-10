@@ -47,19 +47,43 @@
             <!-- Movie Selection -->
             <div class="booking-step">
                 <h3>1. Select Movie & Showtime</h3>
+                @if(empty($movies) || $movies->count() === 0)
+                    <div style="padding:2rem;text-align:center;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;margin-bottom:1rem;">
+                        <p style="margin:0;color:#856404;font-weight:600;">No movies available for walk-in booking.</p>
+                        <p style="margin:0.5rem 0 0;color:#856404;font-size:0.9rem;">Please ensure movies are created in Admin with showtimes and valid listing dates.</p>
+                    </div>
+                @endif
                 <div class="movie-select-grid" id="walkinMovieGrid">
-                    <!-- Movies will be loaded here -->
+                                        <!-- Server-rendered active movies -->
+                                                                                @if(!empty($movies))
+                                                                                @foreach($movies as $mv)
+                                                                @php
+                                                                                        $showtimes = [];
+                                                                                        $mvShowtimes = isset($mv->showtimes) ? $mv->showtimes : [];
+                                                                                        foreach ($mvShowtimes as $st) {
+                                                                                            $showtimes[] = [
+                                                                                                'id' => $st->id,
+                                                                                                'time' => date('H:i', strtotime($st->showtime))
+                                                                                            ];
+                                                                                        }
+                                                                @endphp
+                                            <div class="movie-card-small" data-movie-id="{{ $mv->id }}" data-price="{{ number_format((float)$mv->price, 2, '.', '') }}" data-showtimes='@json($showtimes)'>
+                                                                                            @if(!empty($mv->poster))
+                                                        <img src="{{ $mv->poster }}" alt="{{ $mv->title }} poster" style="width:100%;height:auto;border-radius:8px;object-fit:cover;">
+                                                    @endif
+                                                    <h4>{{ $mv->title }}</h4>
+                                                    <div class="price">₱{{ number_format((float)$mv->price, 2) }}</div>
+                                                    <div class="audience" style="margin-top:6px;color:#6b7280;font-size:0.9rem;">Rated: {{ $mv->audience }}</div>
+                                            </div>
+                                        @endforeach
+                                                                                @endif
                 </div>
             </div>
 
-            <!-- Date & Cinema Selection -->
+            <!-- Showtime & Cinema Selection (Date fixed to today) -->
             <div class="booking-step" id="dateTimeCinemaStep" style="display: none;">
-                <h3>2. Date, Showtime & Cinema</h3>
+                <h3>2. Showtime & Cinema</h3>
                 <div class="selection-row">
-                    <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" id="walkinDate" min="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}">
-                    </div>
                     <div class="form-group">
                         <label>Showtime</label>
                         <select id="walkinShowtime">
@@ -70,8 +94,11 @@
                         <label>Cinema</label>
                         <select id="walkinCinema">
                             <option value="Cinema 1">Cinema 1</option>
-                            <option value="Cinema 2">Cinema 2</option>
+                            <option value="Cinema 2" @if(!config('app.cinema2_available')) disabled @endif>Cinema 2</option>
                         </select>
+                        @if(!config('app.cinema2_available'))
+                          <small class="muted">Cinema 2 is currently unavailable.</small>
+                        @endif
                     </div>
                 </div>
                 <button id="proceedToSeatsBtn" class="btn-primary">Continue</button>
@@ -80,44 +107,63 @@
             <!-- Pax Selection -->
             <div class="booking-step" id="seatSelectionStep" style="display: none;">
                 <h3>3. Pax</h3>
+                <!-- Staff Walk-in Booking Form -->
+                <form id="staffWalkinForm" method="POST" action="{{ route('bookings.place') }}">
+                    @csrf
+                                        <!-- Alerts: success and error messages -->
+                                        @if(session('message'))
+                                            <div class="scan-result success" style="margin-bottom:16px;">
+                                                <div class="result-header">{{ session('message') }}</div>
+                                            </div>
+                                        @endif
+                                        @if($errors->has('booking'))
+                                            <div class="scan-result error" style="margin-bottom:16px;">
+                                                <div class="result-header">{{ $errors->first('booking') }}</div>
+                                            </div>
+                                        @endif
+                    <!-- Hidden fields populated by step 1/2 selections -->
+                    <input type="hidden" name="movieId" id="formMovieId" value="">
+                    <input type="hidden" name="show_date" id="formShowDate" value="{{ now()->toDateString() }}">
+                    <input type="hidden" name="showtime_id" id="formShowtimeId" value="">
+                    <input type="hidden" name="cinema" id="formCinema" value="">
                 <div class="seat-selection-info">
                     <div id="selectedMovieInfo"></div>
                     <div class="selected-seats-summary">
-                        <span>Pax: <strong id="selectedSeatsCount">1</strong></span>
+                        <span>Pax: <strong id="paxBreakdown">0 Regular, 0 Senior</strong></span>
+                        <span>Discount: <strong id="discountAmount">₱0.00</strong></span>
                         <span>Total: <strong id="totalAmount">₱0.00</strong></span>
                     </div>
                 </div>
 
-                <div class="form-group" style="max-width:200px;">
-                    <label>Number of Pax</label>
-                    <input type="number" id="walkinPax" min="1" value="1">
+                <div class="selection-row">
+                    <div class="form-group" style="max-width:200px;">
+                        <label>Regular Pax</label>
+                        <input type="number" id="regularPax" name="quantity" min="0" value="1" class="form-control">
+                        @error('quantity')
+                          <small class="muted" style="color:#b91c1c">{{ $message }}</small>
+                        @enderror
+                    </div>
+                    <div class="form-group" style="max-width:200px;">
+                        <label>Senior Pax</label>
+                        <input type="number" id="seniorPax" name="seniorQuantity" min="0" value="0" class="form-control">
+                        <small class="muted">20% discount applies to seniors only.</small>
+                        @error('seniorQuantity')
+                          <small class="muted" style="color:#b91c1c">{{ $message }}</small>
+                        @enderror
+                    </div>
                 </div>
 
-                <div class="form-group" style="max-width:240px;">
-                    <label>Payment Category</label>
-                    <select id="walkinCategory">
-                        <option value="regular" selected>Regular</option>
-                        <option value="senior">Senior</option>
-                        <option value="pwd">PWD</option>
-                    </select>
-                    <small class="muted">Senior and PWD get 20% discount.</small>
-                </div>
-
-                <!-- Customer Info -->
-                <div class="customer-info-form">
-                    <h4>Customer Information</h4>
+                <!-- Payment Reference (GCash only) -->
+                <div class="payment-ref-form">
+                    <h4>Payment Reference (GCash)</h4>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Name *</label>
-                            <input type="text" id="customerName" placeholder="Full Name" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Email (Optional)</label>
-                            <input type="email" id="customerEmail" placeholder="email@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Phone (Optional)</label>
-                            <input type="tel" id="customerPhone" placeholder="09XX XXX XXXX">
+                        <div class="form-group" style="max-width:320px;">
+                            <label>GCash Reference Number</label>
+                            <input type="text" id="gcashRef" name="gcash_reference" placeholder="e.g., 1234 5678 9012">
+                            <small class="muted">Required only when payment method is Digital.</small>
+                            @error('gcash_reference')
+                              <small class="muted" style="color:#b91c1c">{{ $message }}</small>
+                            @enderror
                         </div>
                     </div>
                 </div>
@@ -127,20 +173,24 @@
                     <h4>Payment Method</h4>
                     <div class="payment-options">
                         <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="cash" checked>
+                            <input type="radio" name="payment_method" value="cash" checked>
                             <span>Cash (Pay now)</span>
                         </label>
                         <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="digital">
+                            <input type="radio" name="payment_method" value="gcash">
                             <span>Digital (Already paid)</span>
                         </label>
                     </div>
+                    @error('payment_method')
+                      <small class="muted" style="color:#b91c1c">{{ $message }}</small>
+                    @enderror
                 </div>
 
                 <div class="booking-actions">
                     <button id="backToMovieBtn" class="btn-secondary">Back</button>
-                    <button id="confirmWalkinBookingBtn" class="btn-primary">Confirm Booking</button>
+                    <button id="confirmWalkinBookingBtn" type="submit" class="btn-primary">Confirm Booking</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -455,6 +505,18 @@
     font-size: 1rem;
 }
 
+/* High-contrast focus styles */
+.form-group input:focus,
+.form-group select:focus,
+.payment-option:has(input:focus),
+.btn-primary:focus,
+.btn-secondary:focus {
+    outline: none;
+    border-color: #6366F1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    color: #111827;
+}
+
 .seat-selection-info {
     display: flex;
     justify-content: space-between;
@@ -597,8 +659,8 @@
 }
 
 .payment-option:has(input:checked) {
-    border-color: #e74c3c;
-    background: #fff5f5;
+    border-color: #6366F1;
+    background: #eef2ff; /* indigo-50 */
 }
 
 .payment-option input[type="radio"] {
@@ -625,8 +687,8 @@
 
 .btn-primary {
     background: #e74c3c;
-    color: white;
-    border: none;
+    color: #fff;
+    border: 2px solid transparent;
 }
 
 .btn-primary:hover {
@@ -634,13 +696,13 @@
 }
 
 .btn-secondary {
-    background: #95a5a6;
-    color: white;
-    border: none;
+    background: #111827;
+    color: #fff;
+    border: 2px solid transparent;
 }
 
 .btn-secondary:hover {
-    background: #7f8c8d;
+    background: #0b1220;
 }
 </style>
 <style>
@@ -774,6 +836,157 @@ document.addEventListener('DOMContentLoaded', function () {
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     });
+
+    // --- Walk-in booking step management ---
+    const dateTimeCinemaStep = document.getElementById('dateTimeCinemaStep');
+    const seatSelectionStep = document.getElementById('seatSelectionStep');
+    const proceedToSeatsBtn = document.getElementById('proceedToSeatsBtn');
+    const backToMovieBtn = document.getElementById('backToMovieBtn');
+    const walkinShowtime = document.getElementById('walkinShowtime');
+    const walkinCinema = document.getElementById('walkinCinema');
+    const formMovieId = document.getElementById('formMovieId');
+    const formShowDate = document.getElementById('formShowDate');
+    const formShowtimeId = document.getElementById('formShowtimeId');
+    const formCinema = document.getElementById('formCinema');
+    const regularPax = document.getElementById('regularPax');
+    const seniorPax = document.getElementById('seniorPax');
+    const paxBreakdown = document.getElementById('paxBreakdown');
+    const discountAmountEl = document.getElementById('discountAmount');
+    const totalAmountEl = document.getElementById('totalAmount');
+    const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
+    const gcashRefInput = document.getElementById('gcashRef');
+    const selectedMovieInfo = document.getElementById('selectedMovieInfo');
+
+    // If a movie card is clicked, reveal step 2 (Showtime & Cinema)
+    const movieGrid = document.getElementById('walkinMovieGrid');
+    if (movieGrid) {
+        movieGrid.addEventListener('click', (e) => {
+            const card = e.target.closest('.movie-card-small');
+            if (!card) return;
+            // Mark selection visually
+            movieGrid.querySelectorAll('.movie-card-small').forEach(el => el.classList.remove('selected'));
+            card.classList.add('selected');
+            // Show step 2
+            dateTimeCinemaStep.style.display = 'block';
+            // Update selected movie info header
+            const title = card.querySelector('h4')?.textContent || 'Selected Movie';
+            selectedMovieInfo.textContent = title;
+            // Store selected movieId into form hidden field
+            formMovieId.value = card.dataset.movieId || card.getAttribute('data-movie-id') || '';
+            // Populate showtime dropdown from card dataset
+            const timesRaw = card.dataset.showtimes || '[]';
+            let times = [];
+            try {
+                times = JSON.parse(timesRaw);
+                console.log('Parsed showtimes for movie:', title, times);
+            } catch (e) {
+                console.error('Failed to parse showtimes:', e, timesRaw);
+                times = [];
+            }
+            if (walkinShowtime) {
+                walkinShowtime.innerHTML = '<option value="">Select time</option>';
+                if (!times || times.length === 0) {
+                    console.warn('No showtimes available for movie:', title);
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No showtimes available for this movie';
+                    opt.disabled = true;
+                    walkinShowtime.appendChild(opt);
+                } else {
+                    times.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id; // Use showtime ID for backend
+                        opt.textContent = t.time; // Display time to user
+                        walkinShowtime.appendChild(opt);
+                    });
+                    console.log('Added', times.length, 'showtimes to dropdown');
+                }
+            }
+            // Sync price for breakdown
+            const price = parseFloat(card.dataset.price || '0') || 0;
+            // Recompute totals immediately
+            syncBreakdown();
+        });
+    }
+
+    // Continue to Pax/Payment step with basic validation
+    if (proceedToSeatsBtn) {
+        proceedToSeatsBtn.addEventListener('click', () => {
+            const showtimeVal = walkinShowtime?.value || '';
+            const cinemaVal = walkinCinema?.value || '';
+            if (!showtimeVal) {
+                alert('Please select a showtime to proceed.');
+                return;
+            }
+            if (!cinemaVal) {
+                alert('Please select a cinema to proceed.');
+                return;
+            }
+            // Store selections into form hidden fields
+            formShowtimeId.value = showtimeVal;
+            formCinema.value = cinemaVal;
+            // Reveal step 3
+            seatSelectionStep.style.display = 'block';
+            // Scroll to step 3 for continuity
+            seatSelectionStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    // Back button returns to step 1
+    if (backToMovieBtn) {
+        backToMovieBtn.addEventListener('click', () => {
+            seatSelectionStep.style.display = 'none';
+            dateTimeCinemaStep.style.display = 'none';
+            // Optional: clear selections
+            if (walkinShowtime) walkinShowtime.value = '';
+        });
+    }
+
+    // Keep pax summary and pricing in sync (senior-only discount)
+    const parseBasePrice = () => {
+        // Prefer data-price from selected card for accuracy
+        const selCard = document.querySelector('.movie-card-small.selected');
+        if (selCard) {
+            const dp = selCard.dataset.price || '';
+            const p = parseFloat(dp);
+            if (!isNaN(p)) return p;
+        }
+        // Fallback to text parsing
+        const sel = document.querySelector('.movie-card-small.selected .price');
+        if (sel) {
+            const val = (sel.textContent || '').replace(/[^0-9.]/g,'');
+            return parseFloat(val) || 0;
+        }
+        return 0;
+    };
+    const fmt = n => '₱' + (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 });
+    const syncBreakdown = () => {
+        const reg = parseInt(regularPax?.value || '0', 10) || 0;
+        const sen = parseInt(seniorPax?.value || '0', 10) || 0;
+        const base = parseBasePrice();
+        const discountRate = 0.20;
+        const regularTotal = reg * base;
+        const seniorTotal = sen * base * (1 - discountRate);
+        const discountAmt = sen * base * discountRate;
+        const total = regularTotal + seniorTotal;
+        if (paxBreakdown) paxBreakdown.textContent = `${reg} Regular, ${sen} Senior`;
+        if (discountAmountEl) discountAmountEl.textContent = fmt(discountAmt);
+        if (totalAmountEl) totalAmountEl.textContent = fmt(total);
+    };
+    [regularPax, seniorPax].forEach(el => el && el.addEventListener('input', syncBreakdown));
+    syncBreakdown();
+
+    // Require GCash reference when payment is Digital
+    if (paymentMethodRadios && gcashRefInput) {
+        const updateRefRequirement = () => {
+            const method = Array.from(paymentMethodRadios).find(r => r.checked)?.value;
+            const isDigital = method === 'gcash';
+            gcashRefInput.required = !!isDigital;
+            gcashRefInput.disabled = !isDigital;
+        };
+        paymentMethodRadios.forEach(r => r.addEventListener('change', updateRefRequirement));
+        updateRefRequirement();
+    }
 });
 </script>
 @endpush

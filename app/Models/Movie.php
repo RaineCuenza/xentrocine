@@ -32,7 +32,11 @@ class Movie extends Model
         'price',
         'poster',
         'audience',
+        'duration',
         'is_active',
+        'available_until',
+        'listing_start',
+        'listing_end',
     ];
 
     /**
@@ -42,7 +46,11 @@ class Movie extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'duration' => 'integer',
         'is_active' => 'boolean',
+        'available_until' => 'date',
+        'listing_start' => 'date',
+        'listing_end' => 'date',
     ];
 
     /**
@@ -58,6 +66,27 @@ class Movie extends Model
             }
             if (!isset($model->is_active)) {
                 $model->is_active = true;
+            }
+            // Default duration to 90 minutes if not set
+            if (empty($model->duration)) {
+                $model->duration = 90;
+            }
+            // Default availability window: 3 weeks, capped at 1 month
+            if (empty($model->available_until)) {
+                $threeWeeks = now()->addWeeks(3);
+                $oneMonth = now()->addMonth();
+                $model->available_until = $threeWeeks->greaterThan($oneMonth) ? $oneMonth : $threeWeeks;
+            }
+
+            // Listing window defaults
+            if (empty($model->listing_start)) {
+                $model->listing_start = today();
+            }
+            if (empty($model->listing_end)) {
+                // Prefer available_until if present; else 3 weeks capped 1 month
+                $cap = now()->addMonth();
+                $defaultEnd = ($model->available_until ?? now()->addWeeks(3));
+                $model->listing_end = $defaultEnd->greaterThan($cap) ? $cap : $defaultEnd;
             }
         });
     }

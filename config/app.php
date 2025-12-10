@@ -84,6 +84,15 @@ return [
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
+    // Cinema availability flags
+    'cinema2_available' => env('CINEMA_2_AVAILABLE', true),
+
+    // Cinema capacities used for occupancy checks
+    'cinemas' => [
+        'Cinema 1' => (int) env('CINEMA_1_CAPACITY', 120),
+        'Cinema 2' => (int) env('CINEMA_2_CAPACITY', 120),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Encryption Key

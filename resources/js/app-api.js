@@ -148,22 +148,7 @@ async function initAdminPage() {
     });
   }
 
-  // Delete movie
-  if (adminMovieList) {
-    adminMovieList.addEventListener('click', async (e) => {
-      if (e.target.classList.contains('admin-item__delete')) {
-        const movieId = e.target.getAttribute('data-id');
-        if (!confirm('Delete this movie?')) return;
-
-        try {
-          await apiCall(`/movies/${movieId}`, { method: 'DELETE' });
-          window.location.reload();
-        } catch (err) {
-          alert(err.message || 'Failed to delete movie');
-        }
-      }
-    });
-  }
+    // Archive/Unarchive handled by server via forms in Blade; remove hard-delete behavior
 
 }
 
@@ -172,6 +157,9 @@ async function initStaffPage() {
   // QR scanner and walk-in booking still require JS
   await initQRScanner();
   await initWalkinBooking();
+
+  // Real-time showing list (poll every 30s)
+  initRealtimeShowing();
 }
 
 async function initQRScanner() {
@@ -270,11 +258,13 @@ async function initQRScanner() {
       scanResult.className = 'scan-result ' + (isPending ? 'pending' : 'success');
       scanResult.style.display = 'block';
 
+      const hasReceipt = data?.booking?.gcash_receipt_url && data?.booking?.payment_method === 'digital';
       const detailsHtml = `
         <div class="result-details">
           <div class="detail-row"><span class="detail-label">Name</span><span>${data.booking?.name || '-'}</span></div>
           <div class="detail-row"><span class="detail-label">Total</span><span>₱${data.booking?.total ?? '-'}</span></div>
           <div class="detail-row"><span class="detail-label">Status</span><span>${data.booking?.status ?? '-'}</span></div>
+          ${hasReceipt ? `<div class="detail-row"><span class="detail-label">GCash</span><span><a href="${data.booking.gcash_receipt_url}" target="_blank">View receipt</a></span></div>` : ''}
         </div>`;
 
       let actionsHtml = '';
@@ -371,12 +361,44 @@ async function initQRScanner() {
   window.addEventListener('resize', handleVisibility);
 }
 
+async function initRealtimeShowing() {
+  const container = document.getElementById('walkinMovieGrid');
+  if (!container) return;
+
+  async function refresh() {
+    try {
+      const showing = await apiCall('/movies/showing');
+      // Render a simple banner/list above the grid
+      let banner = document.getElementById('realtimeShowingBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'realtimeShowingBanner';
+        banner.className = 'muted';
+        banner.style.marginBottom = '10px';
+        container.parentElement.insertBefore(banner, container);
+      }
+      if (!showing.length) {
+        banner.textContent = 'No movies are currently showing.';
+        return;
+      }
+      const items = showing.map(s => `${s.title} — started ${s.showtime}`).join(' • ');
+      banner.textContent = `Now Showing: ${items}`;
+    } catch (err) {
+      // Fail silently
+      console.warn('Realtime showing fetch failed:', err.message);
+    }
+  }
+
+  await refresh();
+  setInterval(refresh, 30000);
+}
+
 async function initWalkinBooking() {
   const walkinMode = document.getElementById('walkinMode');
   if (!walkinMode) return;
 
   const movieGrid = document.getElementById('walkinMovieGrid');
-  const dateInput = document.getElementById('walkinDate');
+  // Date removed; default to today
   const showtimeSelect = document.getElementById('walkinShowtime');
   const cinemaSelect = document.getElementById('walkinCinema');
   const proceedBtn = document.getElementById('proceedToSeatsBtn');
@@ -424,10 +446,15 @@ async function initWalkinBooking() {
     cardEl.classList.add('selected');
 
     // populate showtimes
-    const times = (m.showtimes || []).map(st => typeof st === 'object' ? st.showtime : st);
+    const times = (m.showtimes || []);
     showtimeSelect.innerHTML = '<option value="">Select time</option>';
     times.forEach(t => {
-      const opt = document.createElement('option'); opt.value = t; opt.textContent = t; showtimeSelect.appendChild(opt);
+      const rangeStr = String(t);
+      const start = rangeStr.split('–')[0]?.trim() || rangeStr;
+      const opt = document.createElement('option');
+      opt.value = start;
+      opt.textContent = rangeStr;
+      showtimeSelect.appendChild(opt);
     });
 
     dateTimeCinemaStep.style.display = 'block';
@@ -435,12 +462,13 @@ async function initWalkinBooking() {
 
   if (proceedBtn) {
     proceedBtn.addEventListener('click', () => {
-      if (!chosenMovie || !dateInput.value || !showtimeSelect.value || !cinemaSelect.value){
-        alert('Please complete date, time, and cinema');
+      if (!chosenMovie || !showtimeSelect.value || !cinemaSelect.value){
+        alert('Please complete time and cinema');
         return;
         }
       seatStep.style.display = 'block';
-      selectedMovieInfo.textContent = `${chosenMovie.title} — ${dateInput.value} ${showtimeSelect.value} • ${cinemaSelect.value}`;
+      const todayStr = new Date().toISOString().slice(0,10);
+      selectedMovieInfo.textContent = `${chosenMovie.title} — ${todayStr} ${showtimeSelect.value} • ${cinemaSelect.value}`;
       updateTotals();
       seatStep.scrollIntoView({ behavior: 'smooth' });
     });
@@ -466,21 +494,27 @@ async function initWalkinBooking() {
 
   confirmBtn?.addEventListener('click', async () => {
     if (!chosenMovie) return;
-    const name = document.getElementById('customerName')?.value.trim();
-    const email = document.getElementById('customerEmail')?.value.trim();
-    const phone = document.getElementById('customerPhone')?.value.trim();
+    // Customer information removed for staff flow
     const paymentMethod = (document.querySelector('input[name="paymentMethod"]:checked')?.value) || 'cash';
+    const gcashRef = document.getElementById('gcashRef')?.value.trim();
     const quantity = Number(paxInput.value || 1);
   const categorySel = document.getElementById('walkinCategory');
   const payCategory = categorySel ? categorySel.value : 'regular';
 
+    // Require GCash reference when Digital
+    if (paymentMethod === 'digital' && !gcashRef) {
+      alert('Please enter the GCash reference number.');
+      return;
+    }
+
+    const todayStr = new Date().toISOString().slice(0,10);
     const payload = {
       paymentMethod,
-      customer: { name, email, phone },
+      reference: gcashRef || '',
       items: [{
         movieId: chosenMovie.id,
         title: chosenMovie.title,
-        date: dateInput.value,
+        date: todayStr,
         time: showtimeSelect.value,
         cinema: cinemaSelect.value,
         quantity,

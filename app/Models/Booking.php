@@ -37,6 +37,7 @@ class Booking extends Model
         'status',
         'payment_method',
         'et_qr_token',
+        'gcash_receipt_path',
         'entry_scanned_at',
         'checked_in_by',
     ];
