@@ -55,6 +55,8 @@
                 @if (auth()->user()->role === 'client')
                     <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
                         href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+                    <a class="nav__link @if (Route::currentRouteName() == 'my-bookings') nav__link--active @endif"
+                        href="{{ route('my-bookings') }}">My Bookings</a>
                 @endif
             @endguest
             @php $role = auth()->check() ? auth()->user()->role : null; @endphp

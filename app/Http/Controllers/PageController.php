@@ -310,4 +310,21 @@ class PageController extends Controller
 
         return view('qr-test', compact('bookings'));
     }
+
+    /**
+     * My Bookings page - View user's booking history
+     */
+    public function myBookings()
+    {
+        if (!Auth::check()) {
+            return redirect()->route('login')->with('error', 'Please login to view your bookings');
+        }
+
+        $bookings = Booking::with(['items', 'checkedInBy'])
+            ->where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        return view('my-bookings', compact('bookings'));
+    }
 }
