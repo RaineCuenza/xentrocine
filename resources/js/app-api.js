@@ -151,6 +151,73 @@ function setLoading(button, isLoading) {
   }
 }
 
+// ---------- Confirmation Dialog System ----------
+function showConfirmDialog(message, onConfirm, onCancel = null) {
+  // Remove any existing dialogs
+  const existing = document.querySelector('.confirm-dialog-overlay');
+  if (existing) existing.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-dialog-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-dialog" role="alertdialog" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
+      <div class="confirm-dialog__icon" aria-hidden="true">⚠️</div>
+      <h3 id="confirmTitle" class="confirm-dialog__title">Confirm Action</h3>
+      <p id="confirmDesc" class="confirm-dialog__message">${message}</p>
+      <div class="confirm-dialog__actions">
+        <button class="confirm-dialog__button confirm-dialog__button--secondary" data-action="cancel">Cancel</button>
+        <button class="confirm-dialog__button confirm-dialog__button--primary" data-action="confirm">Confirm</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  // Focus trap
+  const dialog = overlay.querySelector('.confirm-dialog');
+  const confirmBtn = dialog.querySelector('[data-action="confirm"]');
+  const cancelBtn = dialog.querySelector('[data-action="cancel"]');
+  
+  const cleanup = () => {
+    overlay.classList.remove('confirm-dialog-overlay--visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  
+  cancelBtn.addEventListener('click', () => {
+    cleanup();
+    if (onCancel) onCancel();
+  });
+  
+  confirmBtn.addEventListener('click', () => {
+    cleanup();
+    if (onConfirm) onConfirm();
+  });
+  
+  // ESC key to cancel
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      cleanup();
+      if (onCancel) onCancel();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  
+  // Click overlay to cancel
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      cleanup();
+      if (onCancel) onCancel();
+    }
+  });
+  
+  // Animate in
+  setTimeout(() => {
+    overlay.classList.add('confirm-dialog-overlay--visible');
+    confirmBtn.focus();
+  }, 10);
+}
+
 // ---------- Mobile Navigation ----------
 function setupMobileNav() {
   const toggle = document.querySelector('.mobile-toggle');
