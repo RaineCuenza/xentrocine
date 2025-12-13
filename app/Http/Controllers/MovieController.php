@@ -101,6 +101,70 @@ class MovieController extends Controller
     }
 
     /**
+     * Get today's valid showtimes for a movie (source of truth: showtimes table)
+     * - Respects movie listing window
+     * - Filters out showtimes that already ended
+     * - Tags items as now/next/later in label
+     */
+    public function todayShowtimes($id)
+    {
+        try {
+            $movie = Movie::with('showtimes')->find($id);
+            if (!$movie || !$movie->is_active) {
+                return response()->json(['error' => 'Movie not found'], 404);
+            }
+
+            $today = today();
+            // Must be within listing window
+            $inWindow = (!$movie->listing_start || $today->gte($movie->listing_start)) && (!$movie->listing_end || $today->lte($movie->listing_end));
+            if (!$inWindow) {
+                return response()->json(['showtimes' => []]);
+            }
+
+            $durationMin = (int) ($movie->duration ?? 90);
+            $now = now();
+
+            // Map showtimes to labels and filter out those already ended
+            $items = collect($movie->showtimes)
+                ->map(function ($st) use ($durationMin, $today) {
+                    $start = \Carbon\Carbon::createFromFormat('Y-m-d H:i', $today->toDateString() . ' ' . date('H:i', strtotime($st->showtime)));
+                    $end = $start->copy()->addMinutes($durationMin);
+                    return [
+                        'id' => $st->id,
+                        'time' => $start->format('H:i'),
+                        'start' => $start,
+                        'end' => $end,
+                    ];
+                })
+                ->filter(function ($row) use ($now) {
+                    // keep those not ended yet
+                    return $row['end']->gt($now);
+                })
+                ->sortBy('time')
+                ->values()
+                ->map(function ($row) use ($now) {
+                    $label = $row['time'] . ' ';
+                    if ($row['start']->lte($now) && $row['end']->gt($now)) {
+                        $label .= '• Now Showing';
+                    } elseif ($row['start']->lte($now->copy()->addHour())) {
+                        $label .= '• Next';
+                    } else {
+                        $label .= '• Later Today';
+                    }
+                    return [
+                        'id' => $row['id'],
+                        'label' => $label,
+                        'time' => $row['time'],
+                    ];
+                });
+
+            return response()->json(['showtimes' => $items]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to fetch showtimes'], 500);
+        }
+    }
+
+    /**
      * Create new movie (admin only)
      */
     public function store(Request $request)

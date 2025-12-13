@@ -70,6 +70,7 @@ Route::prefix('api')->group(function () {
         Route::get('/', [MovieController::class, 'index']);
         Route::get('/showing', [MovieController::class, 'showingNow']);
         Route::get('/{id}', [MovieController::class, 'show']);
+        Route::get('/{id}/showtimes/today', [MovieController::class, 'todayShowtimes']);
         Route::post('/', [MovieController::class, 'store']);
         Route::put('/{id}', [MovieController::class, 'update']);
         Route::delete('/{id}', [MovieController::class, 'destroy']);
