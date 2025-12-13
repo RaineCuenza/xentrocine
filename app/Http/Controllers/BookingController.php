@@ -135,7 +135,8 @@ class BookingController extends Controller
             DB::beginTransaction();
 
             // Prevent duplicate booking by the same user for the same session (movie/date/time/cinema)
-            if ($isSingleWebForm && $singleValidated) {
+            $isStaffActor = in_array(($user->role ?? 'client'), ['staff', 'admin']);
+            if ($isSingleWebForm && $singleValidated && !$isStaffActor) {
                 $dupeExists = $this->duplicateExistsForSingle($singleValidated, $user);
                 if ($dupeExists) {
                     if ($request->expectsJson()) {

@@ -78,30 +78,31 @@
           <div class="movie-grid" id="walkinMovieGrid">
             @foreach($movies ?? [] as $mv)
               @php
-                $showtimes = ($mv->showtimes ?? collect())
-                  ->map(function ($st) {
-                    $start = date('H:i', strtotime($st->showtime));
-                    $end = $st->end_time ? date('H:i', strtotime($st->end_time)) : null;
-                    return [
-                      'id' => $st->id,
-                      'label' => $end ? "{$start} - {$end}" : $start,
-                      'time' => $start,
-                    ];
-                  });
+                $showtimes = (is_object($mv) && isset($mv->showtimes) && !empty($mv->showtimes))
+                  ? collect($mv->showtimes)->map(function ($st) {
+                      $start = isset($st->showtime) ? date('H:i', strtotime($st->showtime)) : '';
+                      $end = (isset($st->end_time) && $st->end_time) ? date('H:i', strtotime($st->end_time)) : null;
+                      return [
+                        'id' => $st->id ?? '',
+                        'label' => $end ? "{$start} - {$end}" : $start,
+                        'time' => $start,
+                      ];
+                    })
+                  : collect();
               @endphp
               <button
                 type="button"
                 class="movie-card"
                 data-movie-id="{{ $mv->id }}"
-                data-title="{{ $mv->title }}"
+                data-title="{{ is_object($mv) && isset($mv->title) ? $mv->title : '' }}"
                 data-price="{{ number_format((float)($mv->price ?? 0), 2, '.', '') }}"
                 data-showtimes='@json($showtimes)'
               >
                 <div class="movie-card__poster">
-                  @if(!empty($mv->poster))
+                  @if(is_object($mv) && !empty($mv->poster))
                     <img src="{{ $mv->poster }}" alt="{{ $mv->title }} poster" loading="lazy">
                   @else
-                    <div class="poster-fallback">{{ strtoupper(substr($mv->title, 0, 1)) }}</div>
+                    <div class="poster-fallback">{{ is_object($mv) && !empty($mv->title) ? strtoupper(substr($mv->title, 0, 1)) : '?' }}</div>
                   @endif
                 </div>
                 <div class="movie-card__body">

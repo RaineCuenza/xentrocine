@@ -117,10 +117,15 @@ Route::middleware(['auth'])->group(function () {
         if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
             return redirect()->route('home')->with('error', 'Unauthorized');
         }
+        // Normalize accidental GET visits to /admin/movies to the main admin page
+        if ($request->isMethod('get')) {
+            return redirect()->route('admin');
+        }
         $validated = $request->validate([
             'title' => 'required|string',
             'price' => 'required|numeric|min:0',
-            'poster' => 'nullable|string',
+            // Accept a short URL/path or (if form uses multipart) an uploaded image
+            'poster' => 'nullable|string|max:500',
             'audience' => 'required|in:G,PG,R-13,R-16,R-18',
             'times' => 'required|string',
             // New listing window fields
@@ -137,10 +142,22 @@ Route::middleware(['auth'])->group(function () {
             ])->withInput();
         }
         // Use API controller logic but via models directly to avoid JSON
+        // Handle poster: prefer uploaded file if ever provided; otherwise use text URL/path
+        $posterPath = null;
+        if ($request->hasFile('poster')) {
+            $posterPath = $request->file('poster')->store('posters', 'public');
+        } else {
+            $posterPath = trim($request->input('poster', '')) ?: null;
+            // Guard against pasted data URIs/base64 (too long for column)
+            if ($posterPath && str_starts_with($posterPath, 'data:')) {
+                return back()->withErrors(['poster' => 'Please upload an image file or use a hosted URL, not a pasted data URI.'])->withInput();
+            }
+        }
+
         $movie = App\Models\Movie::create([
             'title' => trim($validated['title']),
             'price' => $validated['price'],
-            'poster' => $validated['poster'] ?? null,
+            'poster' => $posterPath,
             'audience' => $validated['audience'],
             'listing_start' => $start->toDateString(),
             'listing_end' => $end->toDateString(),
