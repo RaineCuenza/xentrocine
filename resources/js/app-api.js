@@ -154,22 +154,41 @@ async function initAdminPage() {
 
 // ---------- Staff Page (QR Scanner + Walk-in Booking) ----------
 async function initStaffPage() {
-  // QR scanner and walk-in booking still require JS
-  await initQRScanner();
-  await initWalkinBooking();
+  await Promise.all([
+    initQRScanner(),
+    initWalkinBooking(),
+    initRecentTransactions(),
+  ]);
+  pingApiHealth();
+}
 
-  // Real-time showing list (poll every 30s)
-  initRealtimeShowing();
+async function pingApiHealth() {
+  const pill = document.getElementById('apiHealth');
+  if (!pill) return;
+  pill.textContent = 'Checking API...';
+  pill.className = 'pill pill--muted';
+  try {
+    await apiCall('/health');
+    pill.textContent = 'API online';
+    pill.className = 'pill pill--success';
+  } catch (err) {
+    pill.textContent = 'API unreachable';
+    pill.className = 'pill pill--error';
+  }
 }
 
 async function initQRScanner() {
-  const scannerContainer = document.getElementById('qr-reader');
-  const scanResult = document.getElementById('scanResult');
-  const manualTokenInput = document.getElementById('manualToken');
-  const verifyManualBtn = document.getElementById('manualScanBtn');
-  const scannerMode = document.getElementById('scannerMode');
+  const readerEl = document.getElementById('qr-reader');
+  const statusChip = document.getElementById('scanStatus');
+  const messageEl = document.getElementById('scanMessage');
+  const resultCard = document.getElementById('scanResultCard');
+  const manualInput = document.getElementById('manualTokenInput');
+  const manualBtn = document.getElementById('manualVerifyBtn');
+  const startBtn = document.getElementById('scanStartBtn');
+  const stopBtn = document.getElementById('scanStopBtn');
+  const rescanBtn = document.getElementById('scanRescanBtn');
 
-  if (!scannerContainer) return;
+  if (!readerEl) return;
 
   let html5QrCode = null;
   let scanning = false;
@@ -177,74 +196,71 @@ async function initQRScanner() {
   let lastScanned = '';
   let lastScanAt = 0;
 
-  async function ensureScannerStarted() {
-    if (scanning) return;
+  const setStatus = (text, tone = 'info') => {
+    if (statusChip) {
+      let cls = 'pill ';
+      cls += tone === 'error' ? 'pill--error' : tone === 'success' ? 'pill--success' : 'pill--info';
+      statusChip.className = cls;
+      statusChip.textContent = text;
+    }
+    if (messageEl) messageEl.textContent = text;
+  };
+
+  const formatPeso = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  async function startCamera(auto = false) {
+    if (scanning || processing) return;
+    setStatus(auto ? 'Auto-starting camera...' : 'Starting camera...', 'info');
     try {
-      // Lazy-load the QR library only when needed
       const { Html5Qrcode } = await import('html5-qrcode');
-      html5QrCode = new Html5Qrcode('qr-reader');
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode('qr-reader');
+      }
       await html5QrCode.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: 250 },
+        { fps: 10, qrbox: { width: 260, height: 220 } },
         onScanSuccess,
         () => {}
       );
       scanning = true;
+      setStatus('Scanning...', 'info');
     } catch (err) {
       console.error('Failed to start scanner:', err);
-      // Don't alert immediately; user might not have granted camera permissions yet
+      setStatus('Camera blocked or unavailable', 'error');
+      if (resultCard) {
+        resultCard.hidden = false;
+        resultCard.innerHTML = `<div class="result-head"><strong>Camera error</strong><span class="badge badge--error">Check permissions</span></div><p class="muted">${err.message || 'Allow camera access to scan tickets.'}</p>`;
+      }
     }
   }
 
-  async function stopScanner() {
+  async function stopCamera() {
     if (html5QrCode && scanning) {
       try { await html5QrCode.stop(); } catch (_) {}
       scanning = false;
+      setStatus('Camera paused', 'muted');
     }
   }
 
   async function onScanSuccess(decodedText) {
     const now = Date.now();
-    // Ignore duplicate reads within 2.5s or while processing
     if (processing) return;
     if (decodedText === lastScanned && (now - lastScanAt) < 2500) return;
     processing = true;
     lastScanned = decodedText;
     lastScanAt = now;
-    try {
-      await verifyToken(decodedText);
-    } finally {
-      // Pause camera to prevent repeated scans of the same code
-      await stopScanner();
-      // allow another scan after UI action
-      setTimeout(() => { processing = false; }, 250);
-    }
-  }
-
-  // Manual token verification
-  if (verifyManualBtn) {
-    verifyManualBtn.addEventListener('click', async () => {
-      const token = manualTokenInput?.value.trim();
-      if (!token) {
-        alert('Enter a token');
-        return;
-      }
-      await verifyToken(token);
-    });
-  }
-
-  // Support Enter key for hardware scanners
-  if (manualTokenInput) {
-    manualTokenInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        verifyManualBtn?.click();
-      }
-    });
+    await stopCamera();
+    await verifyToken(decodedText);
+    setTimeout(() => { processing = false; }, 300);
   }
 
   async function verifyToken(token) {
-    if (!scanResult) return;
+    if (!token) return;
+    setStatus('Verifying token...', 'info');
+    if (resultCard) {
+      resultCard.hidden = false;
+      resultCard.innerHTML = '<div class="muted">Checking booking...</div>';
+    }
 
     try {
       const data = await apiCall('/bookings/scan', {
@@ -252,286 +268,380 @@ async function initQRScanner() {
         body: JSON.stringify({ token })
       });
 
-      const isPending = data.pending_payment === true || data?.booking?.status === 'Pending';
-      const awaitingCheckin = data.awaiting_checkin === true || data?.booking?.status === 'Paid';
+      const booking = data?.booking || {};
+      const isPending = data.pending_payment === true || booking.status === 'Pending';
+      const awaitingCheckin = data.awaiting_checkin === true || booking.status === 'Paid';
+      const badgeClass = isPending ? 'badge--pending' : 'badge--paid';
+      const badgeLabel = isPending ? 'Pending payment' : 'Ready to check in';
 
-      scanResult.className = 'scan-result ' + (isPending ? 'pending' : 'success');
-      scanResult.style.display = 'block';
+      const items = booking.items || [];
+      const firstItem = items[0] || {};
+      const seats = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
 
-      const hasReceipt = data?.booking?.gcash_receipt_url && data?.booking?.payment_method === 'digital';
-      const detailsHtml = `
-        <div class="result-details">
-          <div class="detail-row"><span class="detail-label">Name</span><span>${data.booking?.name || '-'}</span></div>
-          <div class="detail-row"><span class="detail-label">Total</span><span>₱${data.booking?.total ?? '-'}</span></div>
-          <div class="detail-row"><span class="detail-label">Status</span><span>${data.booking?.status ?? '-'}</span></div>
-          ${hasReceipt ? `<div class="detail-row"><span class="detail-label">GCash</span><span><a href="${data.booking.gcash_receipt_url}" target="_blank">View receipt</a></span></div>` : ''}
-        </div>`;
-
-      let actionsHtml = '';
+      const actions = [];
       if (isPending) {
-        actionsHtml = '<button id="acceptCashBtn" class="btn-primary">Accept Cash & Check-in</button>';
+        actions.push('<button type="button" class="btn btn--primary" data-action="accept-cash">Accept cash & check-in</button>');
       } else if (awaitingCheckin) {
-        actionsHtml = '<button id="verifyEntryBtn" class="btn-primary">Verify Entry</button>';
+        actions.push('<button type="button" class="btn btn--primary" data-action="verify-entry">Verify entry</button>');
+      }
+      actions.push('<button type="button" class="btn btn--ghost" data-action="rescan">Scan next</button>');
+
+      if (resultCard) {
+        resultCard.hidden = false;
+        resultCard.innerHTML = `
+          <div class="result-head">
+            <div>
+              <div class="badge ${badgeClass}">${badgeLabel}</div>
+              <div class="muted" style="margin-top:6px;">${booking.name || 'Customer'} - ${booking.reference || booking.id || ''}</div>
+            </div>
+            <strong>${formatPeso(booking.total)}</strong>
+          </div>
+          <div class="result-meta">
+            <div><small class="muted">Movie</small><div>${firstItem.movie_title || '-'}</div></div>
+            <div><small class="muted">Session</small><div>${firstItem.time || ''} - ${firstItem.cinema || ''}</div></div>
+            <div><small class="muted">Tickets</small><div>${seats || 0} pax</div></div>
+            <div><small class="muted">Status</small><div>${booking.status || '-'}</div></div>
+          </div>
+          <div class="btn-row">${actions.join('')}</div>
+        `;
       }
 
-      scanResult.innerHTML = `
-        <div class="result-header">${isPending ? '⚠ Pending Payment' : '✓ Valid Ticket'}</div>
-        ${detailsHtml}
-        <div class="result-actions">${actionsHtml || '<button id="scanNextBtn" class="btn-secondary">Scan Next</button>'}</div>
-      `;
+      setStatus(isPending ? 'Pending payment' : 'Valid ticket', isPending ? 'info' : 'success');
+      manualInput && (manualInput.value = '');
 
-      // Clear input for next scan
-      if (manualTokenInput) manualTokenInput.value = '';
+      resultCard?.querySelector('[data-action="accept-cash"]')?.addEventListener('click', async () => {
+        try {
+          await apiCall('/bookings/scan', {
+            method: 'POST',
+            body: JSON.stringify({ token, confirmCash: true, confirmCheckIn: true })
+          });
+          setStatus('Checked in with cash', 'success');
+          resultCard.innerHTML = '<div class="result-head"><strong>Cash accepted</strong><span class="badge badge--paid">Checked in</span></div>';
+        } catch (err) {
+          setStatus(err.message || 'Failed to accept cash', 'error');
+        }
+      });
 
-      const acceptCashBtn = document.getElementById('acceptCashBtn');
-      if (acceptCashBtn) {
-        acceptCashBtn.addEventListener('click', async () => {
-          try {
-            await apiCall('/bookings/scan', {
-              method: 'POST',
-              // Accept cash and check-in in one step
-              body: JSON.stringify({ token, confirmCash: true, confirmCheckIn: true })
-            });
-            scanResult.className = 'scan-result success';
-            scanResult.innerHTML = '<div class="result-header">✓ Checked In Successfully</div>';
-          } catch (err) {
-            alert(err.message || 'Failed to process payment');
-          }
-        });
-      }
+      resultCard?.querySelector('[data-action="verify-entry"]')?.addEventListener('click', async () => {
+        try {
+          await apiCall('/bookings/scan', {
+            method: 'POST',
+            body: JSON.stringify({ token, confirmCheckIn: true })
+          });
+          setStatus('Entry verified', 'success');
+          resultCard.innerHTML = '<div class="result-head"><strong>Entry verified</strong><span class="badge badge--paid">Checked in</span></div>';
+        } catch (err) {
+          setStatus(err.message || 'Failed to verify entry', 'error');
+        }
+      });
 
-      const verifyEntryBtn = document.getElementById('verifyEntryBtn');
-      if (verifyEntryBtn) {
-        verifyEntryBtn.addEventListener('click', async () => {
-          try {
-            await apiCall('/bookings/scan', {
-              method: 'POST',
-              body: JSON.stringify({ token, confirmCheckIn: true })
-            });
-            scanResult.className = 'scan-result success';
-            scanResult.innerHTML = '<div class="result-header">✓ Check-in Verified</div><div class="result-actions"><button id="scanNextBtn" class="btn-secondary">Scan Next</button></div>';
-          } catch (err) {
-            alert(err.message || 'Failed to check-in');
-          }
-        });
-      }
-
-      const scanNextBtn = document.getElementById('scanNextBtn');
-      if (scanNextBtn) {
-        scanNextBtn.addEventListener('click', () => {
-          ensureScannerStarted();
-        });
-      }
+      resultCard?.querySelector('[data-action="rescan"]')?.addEventListener('click', () => {
+        setStatus('Scanning...', 'info');
+        startCamera();
+      });
     } catch (err) {
-      scanResult.className = 'scan-result error';
-      scanResult.style.display = 'block';
-      scanResult.innerHTML = `<div class="result-header">✗ ${err.message}</div>`;
-      // Allow scanning again after error message is shown
-      const btn = document.createElement('button');
-      btn.textContent = 'Scan Next';
-      btn.className = 'btn-secondary';
-      btn.addEventListener('click', () => ensureScannerStarted());
-      const actions = document.createElement('div');
-      actions.className = 'result-actions';
-      actions.appendChild(btn);
-      scanResult.appendChild(actions);
-    }
-  }
-
-  // Desktop: start camera immediately since both panels are visible
-  // Mobile: start only when scanner section is in view or hash points to it
-  function shouldStartScanner() {
-    const isMobile = window.innerWidth < 1024;
-    if (!isMobile) return true; // Desktop: always show scanner
-    // Mobile: start if hash points to scanner or no hash (scanner is first panel)
-    const hash = location.hash.toLowerCase();
-    return !hash || hash.includes('scanner');
-  }
-
-  function handleVisibility() {
-    if (shouldStartScanner()) {
-      ensureScannerStarted();
-    } else {
-      stopScanner();
-    }
-  }
-
-  handleVisibility();
-  window.addEventListener('hashchange', handleVisibility);
-  window.addEventListener('resize', handleVisibility);
-}
-
-async function initRealtimeShowing() {
-  const container = document.getElementById('walkinMovieGrid');
-  if (!container) return;
-
-  async function refresh() {
-    try {
-      const showing = await apiCall('/movies/showing');
-      // Render a simple banner/list above the grid
-      let banner = document.getElementById('realtimeShowingBanner');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'realtimeShowingBanner';
-        banner.className = 'muted';
-        banner.style.marginBottom = '10px';
-        container.parentElement.insertBefore(banner, container);
+      setStatus(err.message || 'Scan failed', 'error');
+      if (resultCard) {
+        resultCard.hidden = false;
+        resultCard.innerHTML = `<div class="result-head"><strong>Scan failed</strong><span class="badge badge--error">Error</span></div><p class="muted">${err.message || 'Unable to verify token.'}</p><div class="btn-row"><button type="button" class="btn btn--ghost" data-action="rescan">Try again</button></div>`;
+        resultCard.querySelector('[data-action="rescan"]')?.addEventListener('click', () => startCamera());
       }
-      if (!showing.length) {
-        banner.textContent = 'No movies are currently showing.';
-        return;
-      }
-      const items = showing.map(s => `${s.title} — started ${s.showtime}`).join(' • ');
-      banner.textContent = `Now Showing: ${items}`;
-    } catch (err) {
-      // Fail silently
-      console.warn('Realtime showing fetch failed:', err.message);
     }
   }
 
-  await refresh();
-  setInterval(refresh, 30000);
+  manualBtn?.addEventListener('click', () => {
+    const token = manualInput?.value.trim();
+    if (!token) {
+      setStatus('Enter a token to verify', 'error');
+      return;
+    }
+    verifyToken(token);
+  });
+
+  manualInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      manualBtn?.click();
+    }
+  });
+
+  startBtn?.addEventListener('click', () => startCamera());
+  rescanBtn?.addEventListener('click', () => startCamera());
+  stopBtn?.addEventListener('click', () => stopCamera());
+
+  startCamera(true);
 }
 
 async function initWalkinBooking() {
-  const walkinMode = document.getElementById('walkinMode');
-  if (!walkinMode) return;
+  const wrap = document.getElementById('walkinMode');
+  if (!wrap) return;
 
+  const movies = Array.isArray(window.staffMovies) ? window.staffMovies : buildMoviesFromDom();
   const movieGrid = document.getElementById('walkinMovieGrid');
-  // Date removed; default to today
-  const showtimeSelect = document.getElementById('walkinShowtime');
-  const cinemaSelect = document.getElementById('walkinCinema');
-  const proceedBtn = document.getElementById('proceedToSeatsBtn');
-  const seatStep = document.getElementById('seatSelectionStep');
-  const dateTimeCinemaStep = document.getElementById('dateTimeCinemaStep');
-  const selectedMovieInfo = document.getElementById('selectedMovieInfo');
-  const paxInput = document.getElementById('walkinPax');
-  const seatsCount = document.getElementById('selectedSeatsCount');
-  const totalAmount = document.getElementById('totalAmount');
-  const backBtn = document.getElementById('backToMovieBtn');
-  const confirmBtn = document.getElementById('confirmWalkinBookingBtn');
+  const showtimeWrap = document.getElementById('showtimeChipWrap');
+  const cinemaSelect = document.getElementById('walkinCinemaSelect');
+  const customerName = document.getElementById('customerNameInput');
+  const paxRegular = document.getElementById('paxRegularInput');
+  const paxSenior = document.getElementById('paxSeniorInput');
+  const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
+  const summaryMovie = document.getElementById('summaryMovie');
+  const summarySession = document.getElementById('summarySession');
+  const summaryPax = document.getElementById('summaryPax');
+  const summaryTotal = document.getElementById('summaryTotal');
+  const statusPill = document.getElementById('walkinStatus');
+  const messageEl = document.getElementById('walkinMessage');
+  const confirmBtn = document.getElementById('createBookingBtn');
+  const resetBtn = document.getElementById('resetWalkinBtn');
+  const form = document.getElementById('walkinForm');
 
-  let movies = [];
-  let chosenMovie = null;
+  let selectedMovie = null;
+  let selectedShowtime = null;
 
-  function formatCurrency(n){ return `₱${Number(n).toFixed(2)}`; }
-
-  // Load movies
-  try {
-    movies = await apiCall('/movies');
-  } catch (e) {
-    console.error(e);
-    return;
-  }
-
-  // Render movie cards
-  if (movieGrid) {
-    movieGrid.innerHTML = '';
-    movies.forEach(m => {
-      const card = document.createElement('div');
-      card.className = 'movie-card-small';
-      card.innerHTML = `
-        <div class="title"><h4>${m.title}</h4></div>
-        <div class="price">${formatCurrency(m.price)}</div>
-      `;
-      card.addEventListener('click', () => selectMovie(m, card));
-      movieGrid.appendChild(card);
+  function buildMoviesFromDom() {
+    const cards = document.querySelectorAll('.movie-card');
+    return Array.from(cards).map((card) => {
+      let showtimes = [];
+      const raw = card.dataset.showtimes || '[]';
+      try { showtimes = JSON.parse(raw); } catch (_) { showtimes = []; }
+      return {
+        id: card.dataset.movieId,
+        title: card.dataset.title,
+        price: Number(card.dataset.price || 0),
+        audience: card.dataset.audience || '',
+        showtimes,
+      };
     });
   }
 
-  function selectMovie(m, cardEl){
-    chosenMovie = m;
-    // highlight selected
-    document.querySelectorAll('.movie-card-small').forEach(c => c.classList.remove('selected'));
-    cardEl.classList.add('selected');
-
-    // populate showtimes
-    const times = (m.showtimes || []);
-    showtimeSelect.innerHTML = '<option value="">Select time</option>';
-    times.forEach(t => {
-      const rangeStr = String(t);
-      const start = rangeStr.split('–')[0]?.trim() || rangeStr;
-      const opt = document.createElement('option');
-      opt.value = start;
-      opt.textContent = rangeStr;
-      showtimeSelect.appendChild(opt);
-    });
-
-    dateTimeCinemaStep.style.display = 'block';
-  }
-
-  if (proceedBtn) {
-    proceedBtn.addEventListener('click', () => {
-      if (!chosenMovie || !showtimeSelect.value || !cinemaSelect.value){
-        alert('Please complete time and cinema');
-        return;
-        }
-      seatStep.style.display = 'block';
-      const todayStr = new Date().toISOString().slice(0,10);
-      selectedMovieInfo.textContent = `${chosenMovie.title} — ${todayStr} ${showtimeSelect.value} • ${cinemaSelect.value}`;
-      updateTotals();
-      seatStep.scrollIntoView({ behavior: 'smooth' });
-    });
-  }
-
-  function updateTotals(){
-    const pax = Number(paxInput.value || 1);
-    const categorySel = document.getElementById('walkinCategory');
-    const category = categorySel ? categorySel.value : 'regular';
-    seatsCount.textContent = pax;
-    let total = pax * (chosenMovie?.price || 0);
-    if (category === 'senior' || category === 'pwd') {
-      total = total * 0.8; // 20% discount
+  const setStatus = (text, tone = 'muted') => {
+    if (statusPill) {
+      let cls = 'pill ';
+      cls += tone === 'error' ? 'pill--error' : tone === 'success' ? 'pill--success' : 'pill--muted';
+      statusPill.className = cls;
+      statusPill.textContent = text;
     }
-    totalAmount.textContent = formatCurrency(total);
-  }
-  paxInput?.addEventListener('input', updateTotals);
-  document.getElementById('walkinCategory')?.addEventListener('change', updateTotals);
+    if (messageEl) messageEl.textContent = text;
+  };
 
-  backBtn?.addEventListener('click', () => {
-    seatStep.style.display = 'none';
-  });
+  const formatPeso = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  confirmBtn?.addEventListener('click', async () => {
-    if (!chosenMovie) return;
-    // Customer information removed for staff flow
-    const paymentMethod = (document.querySelector('input[name="paymentMethod"]:checked')?.value) || 'cash';
-    const gcashRef = document.getElementById('gcashRef')?.value.trim();
-    const quantity = Number(paxInput.value || 1);
-  const categorySel = document.getElementById('walkinCategory');
-  const payCategory = categorySel ? categorySel.value : 'regular';
-
-    // Require GCash reference when Digital
-    if (paymentMethod === 'digital' && !gcashRef) {
-      alert('Please enter the GCash reference number.');
+  function renderShowtimes(movie) {
+    showtimeWrap.innerHTML = '';
+    const sts = Array.isArray(movie?.showtimes) ? movie.showtimes : [];
+    if (!sts.length) {
+      showtimeWrap.textContent = 'No showtimes available for today.';
       return;
     }
-
-    const todayStr = new Date().toISOString().slice(0,10);
-    const payload = {
-      paymentMethod,
-      reference: gcashRef || '',
-      items: [{
-        movieId: chosenMovie.id,
-        title: chosenMovie.title,
-        date: todayStr,
-        time: showtimeSelect.value,
-        cinema: cinemaSelect.value,
-        quantity,
-        seatPrice: Number(chosenMovie.price),
-        payCategory
-      }]
-    };
-
-    try {
-      await apiCall('/bookings', { method: 'POST', body: JSON.stringify(payload) });
-      alert('Walk-in booking created.');
-      location.hash = '#scannerMode';
-      location.reload();
-    } catch (err) {
-      alert(err.message || 'Booking failed');
+    if (!selectedShowtime) {
+      selectedShowtime = sts[0];
     }
+    sts.forEach((st) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.dataset.showtimeId = st.id;
+      chip.dataset.showtimeLabel = st.label;
+      chip.textContent = st.label;
+      if (selectedShowtime && selectedShowtime.id === st.id) {
+        chip.classList.add('active');
+      }
+      chip.addEventListener('click', () => {
+        selectedShowtime = st;
+        renderShowtimes(movie);
+        updateSummary();
+      });
+      showtimeWrap.appendChild(chip);
+    });
+  }
+
+  function selectMovie(cardEl, movieId) {
+    selectedMovie = movies.find((m) => String(m.id) === String(movieId)) || null;
+    selectedShowtime = null;
+    document.querySelectorAll('.movie-card').forEach((c) => c.classList.remove('selected'));
+    cardEl.classList.add('selected');
+    renderShowtimes(selectedMovie);
+    updateSummary();
+    setStatus('Movie selected. Choose showtime & cinema.', 'info');
+  }
+
+  movieGrid?.querySelectorAll('.movie-card').forEach((card) => {
+    card.addEventListener('click', () => selectMovie(card, card.dataset.movieId));
   });
+
+  cinemaSelect?.addEventListener('change', () => updateSummary());
+  customerName?.addEventListener('input', () => updateSummary());
+  paxRegular?.addEventListener('input', () => updateSummary());
+  paxSenior?.addEventListener('input', () => updateSummary());
+  paymentRadios.forEach((r) => r.addEventListener('change', () => updateSummary()));
+
+  function updateSummary() {
+
+    const reg = Math.max(0, Number(paxRegular?.value || 0));
+    const sen = Math.max(0, Number(paxSenior?.value || 0));
+    const totalPax = reg + sen;
+    let errorMsg = '';
+    let price = 0;
+    if (selectedMovie) price = Number(selectedMovie.price || 0);
+    const total = (reg * price) + (sen * price * 0.8);
+    summaryMovie.textContent = selectedMovie ? selectedMovie.title : 'Not selected';
+    const sessionStr = selectedShowtime && cinemaSelect?.value
+      ? `${selectedShowtime.label} - ${cinemaSelect.value}`
+      : 'Pick showtime & cinema';
+    summarySession.textContent = sessionStr;
+    summaryPax.textContent = `${reg} Regular / ${sen} Senior`;
+    summaryTotal.textContent = formatPeso(total);
+
+    // Validation
+    if (!selectedMovie) errorMsg = 'Select a movie.';
+    else if (!selectedShowtime) errorMsg = 'Select a showtime.';
+    else if (!cinemaSelect?.value) errorMsg = 'Select a cinema.';
+    else if (totalPax < 1) errorMsg = 'Total pax must be at least 1.';
+    else if (sen > 0 && document.getElementById('seniorCheck') && !document.getElementById('seniorCheck').checked) errorMsg = 'Senior ID confirmation required.';
+
+    if (errorMsg) {
+      setStatus(errorMsg, 'error');
+      confirmBtn.disabled = true;
+    } else {
+      setStatus('Ready to confirm booking', 'success');
+      confirmBtn.disabled = false;
+    }
+
+    if (form) {
+      const payMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'cash';
+      form.querySelector('#formMovieId').value = selectedMovie?.id || '';
+      form.querySelector('#formShowtimeId').value = selectedShowtime?.id || '';
+      form.querySelector('#formCinema').value = cinemaSelect?.value || '';
+      form.querySelector('#formQuantity').value = totalPax;
+      form.querySelector('#formSeniorQuantity').value = sen;
+      form.querySelector('#formPaymentMethod').value = payMethod;
+      form.querySelector('#formCustomerName').value = customerName?.value?.trim() || '';
+    }
+  }
+
+  async function submitWalkinBooking() {
+    if (!form) return;
+    const formData = new FormData(form);
+    setStatus('Placing booking...', 'info');
+    confirmBtn.disabled = true;
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to place booking');
+      }
+      setStatus('Booking confirmed', 'success');
+      if (messageEl) messageEl.textContent = 'Booking confirmed. Ticket ready to print.';
+      await initRecentTransactions(true);
+      resetWalkin();
+    } catch (err) {
+      setStatus(err.message || 'Booking failed', 'error');
+      confirmBtn.disabled = false;
+    }
+  }
+
+  function resetWalkin() {
+    selectedMovie = null;
+    selectedShowtime = null;
+    document.querySelectorAll('.movie-card').forEach((c) => c.classList.remove('selected'));
+    showtimeWrap.innerHTML = 'Select a movie to load today\'s showtimes';
+    cinemaSelect && (cinemaSelect.value = '');
+    customerName && (customerName.value = '');
+    paxRegular && (paxRegular.value = 1);
+    paxSenior && (paxSenior.value = 0);
+    paymentRadios.forEach((r, idx) => { r.checked = idx === 0; });
+    updateSummary();
+    setStatus('Waiting for selection', 'muted');
+    confirmBtn.disabled = true;
+  }
+
+  confirmBtn?.addEventListener('click', submitWalkinBooking);
+  resetBtn?.addEventListener('click', resetWalkin);
+  updateSummary();
+}
+
+async function initRecentTransactions(refreshOnly = false) {
+  const table = document.getElementById('transactionsTable');
+  const statusEl = document.getElementById('transactionsStatus');
+  if (!table) return;
+
+  statusEl && (statusEl.textContent = 'Loading...');
+  try {
+    const data = await apiCall('/bookings');
+    const items = (Array.isArray(data) ? data : []).slice(0, 8);
+    if (!items.length) {
+      table.innerHTML = '<div class="table__skeleton">No transactions yet.</div>';
+      statusEl && (statusEl.textContent = 'Idle');
+      return;
+    }
+    table.innerHTML = `
+      <div class="table__row table__header">
+        <div>Booking</div><div>Total</div><div>Status</div><div>Actions</div>
+      </div>
+    `;
+    items.forEach((bk, idx) => {
+      const item = (bk.items || [])[0] || {};
+      const dateStr = bk.created_at ? new Date(bk.created_at).toLocaleString() : '';
+      const statusClass = bk.status === 'Paid' ? 'status-paid' : bk.status === 'Cancelled' ? 'status-cancelled' : 'status-pending';
+      const row = document.createElement('div');
+      row.className = 'table__row';
+      row.innerHTML = `
+        <div>
+          <div><strong>${item.movie_title || 'Booking'}</strong></div>
+          <div class="muted" style="font-size:.9rem;">${dateStr}</div>
+          <div class="muted" style="font-size:.9rem;">${item.time || ''} - ${item.cinema || ''}</div>
+        </div>
+        <div>${(bk.total !== undefined && bk.total !== null) ? `₱${Number(bk.total).toLocaleString('en-PH', {minimumFractionDigits:2})}` : '-'}</div>
+        <div><span class="status-badge ${statusClass}">${bk.status || 'Pending'}</span></div>
+        <div><button type="button" class="btn btn--outline" data-print-index="${idx}">Print ticket</button></div>
+      `;
+      table.appendChild(row);
+    });
+    table.querySelectorAll('[data-print-index]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.printIndex);
+        const bk = items[idx];
+        openPrintSlip(bk);
+      });
+    });
+    statusEl && (statusEl.textContent = refreshOnly ? 'Updated' : 'Live');
+  } catch (err) {
+    console.warn('Transactions load failed', err);
+    table.innerHTML = `<div class="table__skeleton">Failed to load transactions: ${err.message || ''}</div>`;
+    statusEl && (statusEl.textContent = 'Error');
+  }
+}
+
+function openPrintSlip(booking) {
+  const win = window.open('', '_blank', 'width=420,height=640');
+  if (!win) {
+    alert('Allow pop-ups to print ticket.');
+    return;
+  }
+  const item = (booking?.items || [])[0] || {};
+  const seats = (booking?.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+  win.document.write(`
+    <html><head><title>Ticket ${booking?.id || ''}</title></head>
+    <body style="font-family:Arial,Helvetica,sans-serif;padding:18px;">
+      <h2 style="margin:0 0 6px;">XentroCine Ticket</h2>
+      <p style="margin:0 0 12px;color:#444;">${new Date(booking?.created_at || Date.now()).toLocaleString()}</p>
+      <hr style="margin:12px 0;">
+      <p style="margin:6px 0;"><strong>Movie:</strong> ${item.movie_title || '-'}</p>
+      <p style="margin:6px 0;"><strong>Session:</strong> ${item.time || ''} - ${item.cinema || ''}</p>
+      <p style="margin:6px 0;"><strong>Tickets:</strong> ${seats} pax</p>
+      <p style="margin:6px 0;"><strong>Total:</strong> ₱${Number(booking?.total || 0).toLocaleString('en-PH',{minimumFractionDigits:2})}</p>
+      <p style="margin:6px 0;"><strong>Status:</strong> ${booking?.status || 'Pending'}</p>
+      <p style="margin:6px 0;"><strong>Token:</strong> ${booking?.et_qr_token || ''}</p>
+      <hr style="margin:12px 0;">
+      <p style="margin:0;color:#555;">Thank you for choosing XentroCine.</p>
+      <script>window.print();<\/script>
+    </body></html>
+  `);
+  win.document.close();
 }
 
 // ---------- QR Test Page ----------

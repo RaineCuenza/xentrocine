@@ -127,6 +127,11 @@ class BookingController extends Controller
 
                 // Reference number is optional for all flows; no enforcement here
 
+            $customerName = trim($singleValidated['customer_name'] ?? $request->input('customer_name', $user->name));
+            if ($customerName === '') {
+                $customerName = $user->name;
+            }
+
             DB::beginTransaction();
 
             // Prevent duplicate booking by the same user for the same session (movie/date/time/cinema)
@@ -154,7 +159,7 @@ class BookingController extends Controller
             // Create booking
             $booking = Booking::create([
                 'user_id' => $user->id,
-                'name' => $user->name,
+                'name' => $customerName,
                 'email' => $user->email,
                 'phone' => '',
                     // Reference number is optional; do not require nor infer it
@@ -247,6 +252,7 @@ class BookingController extends Controller
                 'quantity' => 'required|integer|min:0',
                 'seniorQuantity' => 'required|integer|min:0',
                 'payment_method' => 'required|in:cash,gcash',
+                'customer_name' => 'nullable|string|max:120',
                 'gcash_receipt' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
                 // gcash_reference removed; receipt image is sufficient
             ]);
