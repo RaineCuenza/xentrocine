@@ -20,20 +20,36 @@
       <button id="resendVerificationBtn" class="btn btn--primary">Resend Verification Email</button>
     </div>
   </div>
+  @if(session('message'))
+    @php
+      $msg = session('message');
+      // Hide staff-only walk-in confirmation text from client page
+      if (stripos($msg, 'walk-in booking confirmed') !== false) {
+        $msg = 'Booking placed successfully.';
+      }
+    @endphp
+    <div class="alert alert--success" role="alert" style="margin-top:10px">{{ $msg }}</div>
+  @endif
+  @if(session('error') || $errors->has('booking'))
+    <div class="alert alert--error" role="alert" style="margin-top:10px">
+      {{ session('error') ?? $errors->first('booking') }}
+    </div>
+  @endif
 
   <!-- Page container + responsive grid: Left (2 cols) / Right (1 col) -->
   <div class="page-wrap">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
     <!-- Left Column: Booking Form (spans 2 columns on large screens) -->
     <div class="lg:col-span-2">
+      <section class="panel">
       <h1 class="mb-0">Book Now!</h1>
       <p class="muted">Select a movie, schedule, and number of pax. Payment options: <strong>Cash</strong> or
         <strong>GCash</strong>.</p>
         <form id="bookingForm" action="{{ route('bookings.place') }}" method="POST" enctype="multipart/form-data" data-authed="{{ Auth::check() ? '1' : '0' }}">
           @csrf
           
-          <!-- STEP 1 – Select Details -->
-          <h2 class="step-title">Step 1 – Select Details</h2>
+          <!-- Booking Details -->
+          <h2 class="panel__title">Booking Details</h2>
           <div class="filters">
             <label>Movie
               <select id="movieSelect" name="movieId" data-booking-url="{{ route('booking') }}" required>
@@ -63,9 +79,10 @@
               @if($maxDate) max="{{ $maxDate }}" @endif
               value="{{ $initVal }}"
             />
+            <small class="form-hint">Choose your preferred date</small>
           </label>
           <label>Showtime
-            <select id="showtimeSelect" name="showtime_id" required>
+            <select id="showtimeSelect" name="showtime_id" required @if(!isset($selectedMovie)) disabled @endif>
               @if(isset($selectedMovie))
                 <option value="" disabled selected>Select showtime</option>
                 @foreach($selectedMovie->showtimes as $st)
@@ -75,9 +92,10 @@
                 <option value="" disabled selected>Select showtime</option>
               @endif
             </select>
+            <small class="form-hint">Select your preferred showtime</small>
           </label>
           <label>Cinema
-            <select id="cinemaSelect" name="cinema" required>
+            <select id="cinemaSelect" name="cinema" required disabled>
               <option value="" disabled selected>Select cinema</option>
               <option value="Cinema 1">Cinema 1</option>
               <option value="Cinema 2" @if(!config('app.cinema2_available')) disabled @endif>Cinema 2</option>
@@ -85,6 +103,7 @@
             @if(!config('app.cinema2_available'))
               <small class="muted">Cinema 2 is currently unavailable.</small>
             @endif
+            <small class="form-hint">Cinema availability depends on schedule</small>
           </label>
           </div>
 
@@ -104,7 +123,7 @@
               </div>
             </div>
             <div>
-              <label class="pax-field__label" for="seniorCount">Senior</label>
+              <label class="pax-field__label" for="seniorCount">Senior (with valid ID required at cinema)</label>
               <div class="pax-field__control" role="group" aria-label="Adjust senior pax">
                 <button type="button" class="pax-btn" data-dir="down" data-target="seniorCount" aria-label="Decrease senior">
                   <span aria-hidden="true">−</span>
@@ -114,9 +133,10 @@
                   <span aria-hidden="true">+</span>
                 </button>
               </div>
+              <small class="form-hint">Senior discount applies only upon presentation of a valid Senior Citizen ID at the cinema.</small>
             </div>
           </div>
-          <small class="booking-field__hint">Senior gets 20% discount.</small>
+          <small class="booking-field__hint">20% senior discount applies only with a valid Senior Citizen ID.</small>
         </div>
 
         @if(isset($selectedMovie))
@@ -126,53 +146,71 @@
           <input id="seatPriceInput" type="hidden" name="seatPrice" value="0" />
         @endif
 
-        
-        <!-- STEP 2 – Review Booking -->
-        <h2 class="step-title" style="margin-top:1rem">Step 2 – Review Booking</h2>
-        <aside class="summary" aria-live="polite">
-          <div class="summary__row"><span>Movie:</span><strong id="sumMovie">—</strong></div>
-          <div class="summary__row"><span>Date:</span><strong id="sumDate">—</strong></div>
-          <div class="summary__row"><span>Showtime:</span><strong id="sumTime">—</strong></div>
-          <div class="summary__row"><span>Cinema:</span><strong id="sumCinema">—</strong></div>
-          <div class="summary__row"><span>Pax:</span><strong id="selectedSeats">—</strong></div>
-          <div class="summary__row"><span>Breakdown:</span><strong><span id="breakdownLabel">—</span></strong></div>
-          <div class="summary__row"><span>Price per pax:</span><strong>₱<span id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
-          <div class="summary__row" id="discountInfo" style="display:none"><span>Discount:</span><strong><span id="discountLabel">—</span></strong></div>
-          <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong></div>
-          <button id="proceedPaymentBtn" type="button" class="btn btn--primary" disabled>Continue to Payment</button>
-          @guest
-            <div id="authHint" class="form-help">Log in as Client to proceed.</div>
-          @endguest
-        </aside>
-
-        <!-- STEP 3 – Payment -->
+        <!-- Payment Method -->
         <section id="payment" class="payment" style="display:none">
-          <h2>Step 3 – Payment</h2>
-          <div class="payment__methods">
-            <label class="pmethod">
-              <input type="radio" name="payment_method" value="cash" checked /> Cash (hold for 48 hours)
-            </label>
-            <label class="pmethod">
-              <input type="radio" name="payment_method" value="gcash" /> GCash (instant confirmation)
-            </label>
-          </div>
-          @error('payment_method')
-            <p class="text-red-500 text-sm">{{ $message }}</p>
-          @enderror
-
-          <div id="gcashUpload" class="upload-field" style="display:none;margin:10px 0;">
-            <label for="gcashReceipt">GCash receipt (image)</label>
-            <input id="gcashReceipt" type="file" name="gcash_receipt" accept="image/*">
-            @error('gcash_receipt')
+          <h2 class="panel__title">Payment &amp; Confirmation</h2>
+          <aside class="summary summary--emphasis" aria-live="polite">
+            <div class="summary__row"><span>Movie:</span><strong id="sumMovie">Not selected yet</strong></div>
+            <div class="summary__row"><span>Date:</span><strong id="sumDate">Not selected yet</strong></div>
+            <div class="summary__row"><span>Showtime:</span><strong id="sumTime" class="is-placeholder">Not selected yet</strong></div>
+            <div class="summary__row"><span>Cinema:</span><strong id="sumCinema" class="is-placeholder">Not selected yet</strong></div>
+            <div class="summary__row"><span>Pax:</span><strong id="selectedSeats" class="is-placeholder">0</strong></div>
+            <div class="summary__row"><span>Breakdown:</span><strong><span id="breakdownLabel" class="is-placeholder">0 Regular, 0 Senior</span></strong></div>
+            <div class="summary__row"><span>Price per pax:</span><strong>₱<span id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
+              <div class="summary__row" id="discountInfo" style="display:none"><span>Discount:</span><strong><span id="discountLabel">—</span></strong></div>
+              <div class="summary__row" id="seniorVerifyRow" style="display:none"><span></span><strong>🎫 Senior ID to be verified at cinema</strong></div>
+            <div class="summary__divider"></div>
+            <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong></div>
+          </aside>
+          <div class="payment__content">
+            <div id="seniorConfirmWrap" style="display:none; margin:4px 0 12px;">
+              <input type="hidden" name="senior_confirm" id="seniorConfirmHidden" value="0" />
+              <label class="pmethod" style="display:flex; gap:8px; align-items:flex-start;">
+                <input type="checkbox" id="seniorConfirmChk" />
+                <span>I confirm that the senior(s) will present a valid Senior Citizen ID upon ticket claim.</span>
+              </label>
+              <div id="seniorConfirmError" class="form-error" style="display:none">Required: Please confirm Senior ID verification at the cinema to apply the discount.</div>
+            </div>
+            <div class="payment__methods">
+              <label class="pmethod">
+                <input type="radio" name="payment_method" value="cash" checked /> Cash (reservation held for 48 hours)
+              </label>
+              <label class="pmethod">
+                <input type="radio" name="payment_method" value="gcash" /> GCash (instant confirmation)
+              </label>
+            </div>
+            <!-- Unified agreement: one required checkbox; text adapts to context -->
+            <div id="agreementWrap" style="display:none; margin:8px 0 12px;">
+              <input type="hidden" name="agreement_confirm" id="agreementHidden" value="0" />
+              <label class="pmethod" style="display:flex; align-items:center; gap:8px">
+                <input type="checkbox" id="agreementChk" />
+                <span id="agreementText">I agree to the terms shown below.</span>
+              </label>
+              <div id="agreementError" class="form-error" style="display:none">Agreement is required to proceed.</div>
+            </div>
+            @error('payment_method')
               <p class="text-red-500 text-sm">{{ $message }}</p>
             @enderror
-            <small class="muted">Upload a clear screenshot/photo of your GCash payment.</small>
-          </div>
 
-          <button type="submit" class="btn btn--primary">Confirm & Place Booking</button>
-          <div class="form-help">Unpaid Cash reservations auto-cancel after 48 hours.</div>
+            <!-- Context info (informational only, no extra checkboxes) -->
+            <div id="contextInfo" class="muted" style="margin:6px 0 10px; display:none;"></div>
+
+            <div id="gcashUpload" class="upload-field" style="display:none;margin:10px 0;">
+              <label for="gcashReceipt">GCash receipt (image)</label>
+              <input id="gcashReceipt" type="file" name="gcash_receipt" accept="image/*">
+              @error('gcash_receipt')
+                <p class="text-red-500 text-sm">{{ $message }}</p>
+              @enderror
+              <small class="muted">Upload a clear screenshot/photo of your GCash payment.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary" disabled>Confirm & Place Booking</button>
+            <div class="form-hint">Senior discounts are validated upon ticket claim. Invalid claims will be charged the regular rate.</div>
+            <div class="form-help">Unpaid Cash reservations auto-cancel after 48 hours.</div>
+          </div>
         </section>
   </form>
+      </section>
     </div>
 
     <!-- Right Column: My Bookings only -->
@@ -188,6 +226,12 @@
           @else
             @foreach($bookings as $booking)
               <li class="booking-item">
+                @php
+                  $fullPrice = $booking->items->sum(function($item) {
+                    return ($item->price ?? 0) * ($item->quantity ?? 0);
+                  });
+                  $hasSeniorFlag = $fullPrice > 0 && (float) $booking->total < $fullPrice;
+                @endphp
                 <div class="booking-item__header">
                   <strong>{{ $booking->items->first()->movie_title ?? 'Booking' }}</strong>
                   <span class="badge badge--{{ strtolower($booking->status) }}">{{ $booking->status }}</span>
@@ -205,6 +249,9 @@
                     {{ $item->quantity }} pax
                   </div>
                 @endforeach
+                @if($hasSeniorFlag)
+                  <div class="booking-item__detail">🎫 Senior ID to be verified at cinema</div>
+                @endif
                 <div class="booking-item__footer">
                   <span>Total: ₱{{ number_format($booking->total, 2) }}</span>
                   <span>{{ $booking->created_at->format('M d, Y') }}</span>
@@ -235,13 +282,24 @@
       const seatPriceInput = document.getElementById('seatPriceInput');
       const selectedSeatsEl = document.getElementById('selectedSeats');
       const totalPriceEl = document.getElementById('totalPrice');
-      const proceedBtn = document.getElementById('proceedPaymentBtn');
+  // Removed intermediate 'Continue to Payment' button for single-step confirmation
       const paymentSection = document.getElementById('payment');
+  const confirmBtn = form.querySelector('button[type="submit"]');
       const gcashField = document.getElementById('gcashUpload');
+      // Use unified agreement controls (existing in markup) instead of non-existent gcashAgree* elements
+      const agreementWrap = document.getElementById('agreementWrap');
+      const agreementChk = document.getElementById('agreementChk');
+      const agreementHidden = document.getElementById('agreementHidden');
+      const agreementError = document.getElementById('agreementError');
       const sumMovie = document.getElementById('sumMovie');
       const sumDate = document.getElementById('sumDate');
       const sumTime = document.getElementById('sumTime');
       const sumCinema = document.getElementById('sumCinema');
+    const seniorConfirmWrap = document.getElementById('seniorConfirmWrap');
+    const seniorConfirmChk = document.getElementById('seniorConfirmChk');
+    const seniorConfirmHidden = document.getElementById('seniorConfirmHidden');
+    const seniorConfirmError = document.getElementById('seniorConfirmError');
+    const seniorVerifyRow = document.getElementById('seniorVerifyRow');
 
       if (!form) return;
 
@@ -277,7 +335,8 @@
         const price = numeric(seatText || seatHidden || 0);
 
         if (selectedSeatsEl) {
-          selectedSeatsEl.textContent = allSelected() ? String(qty) : '—';
+          selectedSeatsEl.textContent = allSelected() ? String(qty) : '0';
+          selectedSeatsEl.classList.toggle('is-placeholder', !allSelected());
         }
 
         const regularTotal = price * reg;
@@ -287,7 +346,10 @@
           totalPriceEl.textContent = allSelected() && price > 0 ? total.toFixed(2).replace(/\.00$/, '') : '—';
         }
         const breakdownLabel = document.getElementById('breakdownLabel');
-        if (breakdownLabel) breakdownLabel.textContent = `${reg} Regular, ${sen} Senior`;
+        if (breakdownLabel) {
+          breakdownLabel.textContent = `${reg} Regular, ${sen} Senior`;
+          breakdownLabel.classList.toggle('is-placeholder', !allSelected());
+        }
         const discountInfo = document.getElementById('discountInfo');
         const discountLabel = document.getElementById('discountLabel');
         const discountAmt = price * sen * 0.2;
@@ -300,19 +362,67 @@
           }
         }
 
+        // Show senior verification note in summary
+        if (seniorVerifyRow) {
+          seniorVerifyRow.style.display = sen > 0 ? 'flex' : 'none';
+        }
+
+        // Show/hide senior confirmation checkbox in payment
+        if (seniorConfirmWrap) {
+          seniorConfirmWrap.style.display = sen > 0 ? 'block' : 'none';
+          if (sen <= 0) {
+            if (seniorConfirmError) seniorConfirmError.style.display = 'none';
+            if (seniorConfirmHidden) seniorConfirmHidden.value = '0';
+            if (seniorConfirmChk) seniorConfirmChk.checked = false;
+          }
+        }
+
         const authed = form && form.dataset.authed === '1';
-        if (proceedBtn) {
-          proceedBtn.disabled = !(allSelected() && price > 0 && authed && qty > 0);
+        // Auto-show payment section when details are valid; hide otherwise
+        if (paymentSection) {
+          const canShow = allSelected() && price > 0 && authed && qty > 0;
+          paymentSection.style.display = canShow ? 'block' : 'none';
+        }
+        if (confirmBtn) {
+          // enable confirm only when payment is visible, method selected and if gcash then file present, and senior confirmation satisfied
+          const method = document.querySelector('input[name="payment_method"]:checked')?.value;
+          const receiptOk = method !== 'gcash' || !!document.getElementById('gcashReceipt')?.files?.length;
+          // Enforce senior agreement when senior pax > 0
+          const seniorOk = (sen <= 0) || !!seniorConfirmChk?.checked;
+          // For GCash, require agreement checkbox; for Cash, no agreement needed
+          const gcashAgreeOk = method !== 'gcash' || !!agreementChk?.checked;
+          if (sen > 0 && seniorConfirmError) {
+            seniorConfirmError.style.display = seniorOk ? 'none' : 'block';
+          }
+          if (method === 'gcash' && agreementError) {
+            agreementError.style.display = gcashAgreeOk ? 'none' : 'block';
+          } else if (agreementError) {
+            agreementError.style.display = 'none';
+          }
+          confirmBtn.disabled = !(paymentSection?.style.display === 'block' && method && receiptOk && qty > 0 && allSelected() && seniorOk && gcashAgreeOk);
         }
 
         // Update summary labels
         if (sumMovie) {
-          const title = movieSel?.selectedOptions?.[0]?.text?.split(' — ')[0] || '—';
+          const title = movieSel?.selectedOptions?.[0]?.text?.split(' — ')[0] || 'Not selected yet';
           sumMovie.textContent = title;
+          sumMovie.classList.toggle('is-placeholder', !movieSel?.value);
         }
-        if (sumDate) sumDate.textContent = document.getElementById('show_date')?.value || '—';
-        if (sumTime) sumTime.textContent = timeSel?.selectedOptions?.[0]?.text || '—';
-        if (sumCinema) sumCinema.textContent = cinemaSel?.value || '—';
+        if (sumDate) {
+          const d = document.getElementById('show_date')?.value || 'Not selected yet';
+          sumDate.textContent = d;
+          sumDate.classList.toggle('is-placeholder', !document.getElementById('show_date')?.value);
+        }
+        if (sumTime) {
+          const t = timeSel?.selectedOptions?.[0]?.text || 'Not selected yet';
+          sumTime.textContent = t;
+          sumTime.classList.toggle('is-placeholder', !timeSel?.value);
+        }
+        if (sumCinema) {
+          const c = cinemaSel?.value || 'Not selected yet';
+          sumCinema.textContent = c;
+          sumCinema.classList.toggle('is-placeholder', !cinemaSel?.value);
+        }
       }
 
       const paxButtons = document.querySelectorAll('.pax-btn');
@@ -351,37 +461,57 @@
       });
       recalc();
 
-      // Expand payment on demand for a cleaner flow
-      function openPayment(e) {
-        e.preventDefault();
-        if(paymentSection){
-          paymentSection.style.display = 'block';
-          paymentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          // focus the first payment radio for accessibility
-          const firstRadio = paymentSection.querySelector('input[type="radio"]');
-          if (firstRadio) firstRadio.focus({ preventScroll: true });
-          toggleReceipt();
-        }
-      }
+      // No intermediate step; payment section visibility is gated by selections
       // Toggle GCash receipt upload field based on selected payment method
       function toggleReceipt() {
         try {
           const method = document.querySelector('input[name="payment_method"]:checked')?.value;
           if (gcashField) gcashField.style.display = method === 'gcash' ? 'block' : 'none';
+          if (agreementWrap) {
+            const isGcash = method === 'gcash';
+            agreementWrap.style.display = isGcash ? 'block' : 'none';
+            if (!isGcash) {
+              if (agreementHidden) agreementHidden.value = '0';
+              if (agreementChk) agreementChk.checked = false;
+              if (agreementError) agreementError.style.display = 'none';
+            }
+          }
         } catch (e) {}
       }
       document.querySelectorAll('input[name="payment_method"]').forEach(function(radio){
-        radio.addEventListener('change', toggleReceipt);
+        radio.addEventListener('change', function(){ toggleReceipt(); recalc(); });
+      });
+      // Maintain hidden senior_confirm value but don't block submission if unchecked
+      seniorConfirmChk?.addEventListener('change', function(){
+        if (seniorConfirmHidden) seniorConfirmHidden.value = seniorConfirmChk.checked ? '1' : '0';
+        recalc();
+      });
+      agreementChk?.addEventListener('change', function(){
+        if (agreementHidden) agreementHidden.value = agreementChk.checked ? '1' : '0';
+        recalc();
       });
       toggleReceipt();
-      if (proceedBtn && paymentSection) {
-        proceedBtn.addEventListener('click', openPayment);
-      }
+      // No proceed button listeners needed
       // prevent submit without selections
       form.addEventListener('submit', function(e){
-        if (proceedBtn?.disabled) {
+        if (confirmBtn?.disabled) {
           e.preventDefault();
         }
+      });
+
+      // Disable showtime/cinema until movie+date selected
+      function gateSelectors(){
+        const hasMovie = !!movieSel?.value;
+        const hasDate = !!document.getElementById('show_date')?.value;
+        timeSel.disabled = !(hasMovie && hasDate);
+        // enable cinema only when showtime chosen
+        cinemaSel.disabled = !timeSel.value;
+      }
+      gateSelectors();
+      ['change','input'].forEach(function(ev){
+        document.getElementById('show_date')?.addEventListener(ev, function(){ gateSelectors(); recalc(); });
+        movieSel?.addEventListener(ev, function(){ gateSelectors(); });
+        timeSel?.addEventListener(ev, function(){ gateSelectors(); recalc(); });
       });
     })();
   </script>

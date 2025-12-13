@@ -4,10 +4,19 @@
 @section('page', 'home')
 
 @php
-    use Illuminate\Support\Str;
-    $mostAttended = $movies->sortByDesc('updated_at');
-    $mostPopular = $movies->sortBy('title');
-    $nowShowing = $movies;
+  use Illuminate\Support\Str;
+  $today = date('Y-m-d');
+  $mostAttended = $movies->sortByDesc('updated_at');
+  $mostPopular = $movies->sortBy('title');
+  $nowShowing = $movies->filter(function($m) use($today){
+    $ls = optional($m->listing_start)->toDateString();
+    $le = optional($m->listing_end)->toDateString();
+    return (!$ls || $ls <= $today) && (!$le || $le >= $today);
+  });
+  $comingSoon = $movies->filter(function($m) use($today){
+    $ls = optional($m->listing_start)->toDateString();
+    return $ls && $ls > $today;
+  });
 @endphp
 
 @section('content')
@@ -38,6 +47,7 @@
         @php
           $title = $movie->title;
           $poster = $movie->poster ?: '/images/placeholders/movie.jpg';
+          $price = $movie->price ? '₱'.number_format((float)$movie->price, 2) : null;
         @endphp
         <article class="card movie-card" data-movie-card data-title="{{ Str::lower($title) }}">
           <img class="card__img" src="{{ $poster }}" alt="{{ $title }}" loading="lazy" />
@@ -46,7 +56,10 @@
               <div class="card__title">{{ $title }}</div>
               <span class="aud-badge aud-badge--{{ str_replace([' ','_'], ['-','-'], $movie->audience) }}">{{ $movie->audience }}</span>
             </div>
-            <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            <div class="card__footer">
+              @if($price)<span class="release-date">{{ $price }}</span>@endif
+              <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            </div>
           </div>
         </article>
       @endforeach
@@ -61,6 +74,7 @@
         @php
           $title = $movie->title;
           $poster = $movie->poster ?: '/images/placeholders/movie.jpg';
+          $price = $movie->price ? '₱'.number_format((float)$movie->price, 2) : null;
         @endphp
         <article class="card movie-card" data-movie-card data-title="{{ Str::lower($title) }}">
           <img class="card__img" src="{{ $poster }}" alt="{{ $title }}" loading="lazy" />
@@ -69,7 +83,10 @@
               <div class="card__title">{{ $title }}</div>
               <span class="aud-badge aud-badge--{{ str_replace([' ','_'], ['-','-'], $movie->audience) }}">{{ $movie->audience }}</span>
             </div>
-            <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            <div class="card__footer">
+              @if($price)<span class="release-date">{{ $price }}</span>@endif
+              <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            </div>
           </div>
         </article>
       @endforeach
@@ -77,27 +94,63 @@
     <p class="movie-row__empty" data-empty-message hidden>No movies found. Try a different title.</p>
   </section>
 
-  <section class="movie-section">
+  <section class="movie-section" data-filter-section>
     <h2 class="movie-section__title">Now Showing</h2>
-    <div class="movie-row">
+    <div class="movie-row" data-movie-row>
       @foreach($nowShowing as $movie)
         @php
           $title = $movie->title;
           $poster = $movie->poster ?: '/images/placeholders/movie.jpg';
+          $price = $movie->price ? '₱'.number_format((float)$movie->price, 2) : null;
         @endphp
-        <article class="card movie-card">
+        <article class="card movie-card" data-movie-card data-title="{{ Str::lower($title) }}">
           <img class="card__img" src="{{ $poster }}" alt="{{ $title }}" loading="lazy" />
           <div class="card__body">
             <div class="card__header">
               <div class="card__title">{{ $title }}</div>
               <span class="aud-badge aud-badge--{{ str_replace([' ','_'], ['-','-'], $movie->audience) }}">{{ $movie->audience }}</span>
             </div>
-            <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            <div class="card__footer">
+              <span class="status-badge status-badge--now">Now Showing</span>
+              @if($price)<span class="release-date">{{ $price }}</span>@endif
+              <a href="{{ route('booking', ['movie' => $movie->id]) }}" class="btn btn--ghost">Buy Tickets</a>
+            </div>
           </div>
         </article>
       @endforeach
     </div>
+    <p class="movie-row__empty" data-empty-message hidden>No movies found. Try a different title.</p>
   </section>
+
+  @if($comingSoon->isNotEmpty())
+  <section class="movie-section" data-filter-section>
+    <h2 class="movie-section__title">Coming Soon</h2>
+    <div class="movie-row" data-movie-row>
+      @foreach($comingSoon as $movie)
+        @php
+          $title = $movie->title;
+          $poster = $movie->poster ?: '/images/placeholders/movie.jpg';
+          $release = optional($movie->listing_start)->format('d M Y');
+        @endphp
+        <article class="card movie-card" data-movie-card data-title="{{ Str::lower($title) }}">
+          <img class="card__img" src="{{ $poster }}" alt="{{ $title }}" loading="lazy" />
+          <div class="card__body">
+            <div class="card__header">
+              <div class="card__title">{{ $title }}</div>
+              <span class="aud-badge aud-badge--{{ str_replace([' ','_'], ['-','-'], $movie->audience) }}">{{ $movie->audience }}</span>
+            </div>
+            <div class="card__footer">
+              <span class="status-badge status-badge--soon">Coming Soon</span>
+              <span class="release-date">{{ $release }}</span>
+              <a href="#" class="btn btn--ghost" aria-disabled="true">View Details</a>
+            </div>
+          </div>
+        </article>
+      @endforeach
+    </div>
+    <p class="movie-row__empty" data-empty-message hidden>No movies found. Try a different title.</p>
+  </section>
+  @endif
 @endif
 @endsection
 
