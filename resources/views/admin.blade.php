@@ -151,6 +151,66 @@
         </div>
       </section>
 
+      <!-- Right: Manage Cinemas -->
+      <section class="admin-panel" style="min-height: 100%;">
+        <header class="admin-panel__header">
+          <div>
+            <h2>Manage Cinemas</h2>
+            <p class="admin-panel__hint">Control availability for customer bookings.</p>
+          </div>
+          <span class="admin-panel__tag">{{ isset($cinemas) ? $cinemas->count() : 0 }} cinemas</span>
+        </header>
+        <div class="admin-panel__body">
+          @if(!isset($cinemas) || $cinemas->count() === 0)
+            <div class="booking-item booking-item--empty">No cinemas found. Run migrations + seeders.</div>
+          @else
+            <div class="admin-cinemas" style="display:grid; gap:12px;">
+              @foreach($cinemas as $cinema)
+                @php
+                  $status = $cinema->status ?? 'available';
+                  $badgeStatus = $status === 'available' ? 'paid' : ($status === 'maintenance' ? 'pending' : ($status === 'unavailable' ? 'cancelled' : 'cancelled'));
+                  $label = $status === 'available' ? 'Available' : ($status === 'maintenance' ? 'Maintenance' : ($status === 'unavailable' ? 'Unavailable' : 'Inactive'));
+                @endphp
+                <form action="{{ url('/admin/cinemas/' . $cinema->id) }}" method="POST" class="admin-form" style="padding:12px;border:1px solid var(--divider);border-radius:12px;background:rgba(255,255,255,0.02);">
+                  @csrf
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                    <div style="min-width:220px;">
+                      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <strong style="font-size:1.05rem;">{{ $cinema->name }}</strong>
+                        <span class="badge badge--{{ strtolower($badgeStatus) }}">{{ $label }}</span>
+                      </div>
+                      <div class="muted" style="margin-top:4px; font-size:.9rem;">
+                        Capacity: <strong>{{ (int)($cinema->capacity ?? 120) }}</strong>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 130px; gap:10px; align-items:end; min-width:320px;">
+                      <label class="admin-field" style="margin:0;">
+                        <span class="admin-field__label">Status</span>
+                        <select name="status" required>
+                          <option value="available" {{ ($status === 'available') ? 'selected' : '' }}>Available</option>
+                          <option value="maintenance" {{ ($status === 'maintenance') ? 'selected' : '' }}>Under maintenance</option>
+                          <option value="unavailable" {{ ($status === 'unavailable') ? 'selected' : '' }}>Unavailable</option>
+                          <option value="inactive" {{ ($status === 'inactive') ? 'selected' : '' }}>Inactive</option>
+                        </select>
+                      </label>
+                      <label class="admin-field" style="margin:0;">
+                        <span class="admin-field__label">Capacity</span>
+                        <input name="capacity" type="number" min="1" max="500" value="{{ (int)($cinema->capacity ?? 120) }}" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="admin-form__actions" style="margin-top:10px;">
+                    <button class="btn btn--ghost" type="submit">Save</button>
+                  </div>
+                </form>
+              @endforeach
+            </div>
+          @endif
+        </div>
+      </section>
+
     <section class="admin-panel" style="min-height: 100%;">
     <header class="admin-panel__header">
       <div>

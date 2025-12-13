@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Movie;
 use App\Models\Showtime;
+use App\Models\Cinema;
 use App\Mail\BookingConfirmation;
 use App\Services\CartService;
 use Illuminate\Http\Request;
@@ -124,18 +125,7 @@ class BookingController extends Controller
             /** @var \App\Models\User|null $user */
             $user = Auth::user();
 
-            // For JSON/staff API flows, enforce reference number when digital
-            if (!$isSingleWebForm && !$usingSessionCart && $paymentMethod === 'digital') {
-                $ref = $request->input('reference');
-                if (!$ref || !is_string($ref) || strlen(trim($ref)) < 6) {
-                    if ($request->expectsJson()) {
-                        return response()->json([
-                            'error' => 'GCash reference number is required for digital payments.',
-                        ], 422);
-                    }
-                    return back()->withErrors(['booking' => 'GCash reference number is required.'])->withInput();
-                }
-            }
+                // Reference number is optional for all flows; no enforcement here
 
             DB::beginTransaction();
 
@@ -167,7 +157,8 @@ class BookingController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'phone' => '',
-                'reference' => $request->input('gcash_reference', $request->input('reference', '')),
+                    // Reference number is optional; do not require nor infer it
+                    'reference' => $request->input('reference', ''),
                 'total' => $total,
                 'status' => $initialStatus,
                 'payment_method' => $paymentMethod,
@@ -257,7 +248,7 @@ class BookingController extends Controller
                 'seniorQuantity' => 'required|integer|min:0',
                 'payment_method' => 'required|in:cash,gcash',
                 'gcash_receipt' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
-                'gcash_reference' => 'required_if:payment_method,gcash|string|min:6',
+                // gcash_reference removed; receipt image is sufficient
             ]);
 
             $movie = Movie::find($validated['movieId']);
@@ -358,7 +349,20 @@ class BookingController extends Controller
             }
 
             $cinema = $item['cinema'];
-            $capacity = (int) ($capacityMap[$cinema] ?? 120);
+
+            // Enforce cinema availability (DB-backed); fall back to config if cinemas table isn't used.
+            $cinemaRecord = Cinema::where('name', $cinema)->first();
+            if ($cinemaRecord) {
+                if (($cinemaRecord->status ?? 'available') !== 'available') {
+                    $label = ($cinemaRecord->status === 'maintenance') ? 'under maintenance' : (($cinemaRecord->status === 'unavailable') ? 'unavailable' : 'inactive');
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'items.0.cinema' => "Selected cinema is currently {$label}. Please choose another cinema.",
+                    ]);
+                }
+                $capacity = (int) ($cinemaRecord->capacity ?? 120);
+            } else {
+                $capacity = (int) ($capacityMap[$cinema] ?? 120);
+            }
             $movieId = $item['movieId'];
             $date = Carbon::parse($item['date'])->toDateString();
             $timeNorm = date('H:i:s', strtotime($item['time']));
@@ -453,14 +457,15 @@ class BookingController extends Controller
      */
     private function determineInitialStatus($user, string $paymentMethod): string
     {
-        // Default: require staff verification for all client-origin bookings
-        // Cash: Pending until accepted; Digital/GCash: Pending until verified via Mailtrap/QR
-        $status = 'Pending';
-        if ($user && (($user->role ?? 'client') === 'staff')) {
-            // Staff walk-in bookings are immediately Paid
-            $status = 'Paid';
+        // Cash: Pending until accepted; Digital/GCash: Paid immediately
+        if ($paymentMethod === 'digital') {
+            return 'Paid';
         }
-        return $status;
+        // Staff walk-in cash bookings are also marked Paid immediately
+        if ($user && (($user->role ?? 'client') === 'staff')) {
+            return 'Paid';
+        }
+        return 'Pending';
     }
 
     /**

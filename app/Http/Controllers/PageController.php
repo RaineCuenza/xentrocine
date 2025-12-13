@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Movie;
 use App\Models\Booking;
 use App\Models\BookingItem;
+use App\Models\Cinema;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -118,6 +119,9 @@ class PageController extends Controller
             ->orderBy('title')
             ->get();
 
+        // Cinema availability/status for dropdown
+        $cinemas = Cinema::orderBy('name')->get();
+
         // Selected movie for non-JS showtime population
         $selectedMovieId = $request->query('movie');
         $selectedMovie = null;
@@ -139,7 +143,7 @@ class PageController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
         }
-        return view('booking', compact('movies', 'bookings', 'selectedMovie'));
+        return view('booking', compact('movies', 'bookings', 'selectedMovie', 'cinemas'));
     }
 
     /**
@@ -215,10 +219,13 @@ class PageController extends Controller
             'cancelled' => Booking::where('status', 'Cancelled')->count(),
         ];
 
+        $cinemas = Cinema::orderBy('name')->get();
+
         return view('admin', [
             'moviesActive' => $moviesActive,
             'moviesArchived' => $moviesArchived,
             'bookings' => $bookingsPaginated,
+            'cinemas' => $cinemas,
             'kpis' => $kpis,
             'filters' => [
                 'm_q_a' => $mSearchActive,
@@ -255,7 +262,9 @@ class PageController extends Controller
             ->orderBy('title')
             ->get();
 
-        return view('staff', compact('movies'));
+        $cinemas = Cinema::orderBy('name')->get();
+
+        return view('staff', compact('movies', 'cinemas'));
     }
 
     /**

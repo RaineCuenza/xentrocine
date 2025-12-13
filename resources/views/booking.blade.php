@@ -50,8 +50,8 @@
           
           <!-- Booking Details -->
           <h2 class="panel__title">Booking Details</h2>
-          <div class="filters">
-            <label>Movie
+          <div class="filters booking-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+            <label class="field-label">Movie
               <select id="movieSelect" name="movieId" data-booking-url="{{ route('booking') }}" required>
                 @if($movies->isEmpty())
                   <option value="">No movies available</option>
@@ -64,8 +64,8 @@
                   @endforeach
                 @endif
               </select>
-            </label>
-            <label>Date
+              </label>
+            <label class="field-label">Date
             @php
               $minDate = isset($selectedMovie) && $selectedMovie->listing_start ? $selectedMovie->listing_start->format('Y-m-d') : date('Y-m-d');
               $maxDate = isset($selectedMovie) && $selectedMovie->listing_end ? $selectedMovie->listing_end->format('Y-m-d') : null;
@@ -79,9 +79,8 @@
               @if($maxDate) max="{{ $maxDate }}" @endif
               value="{{ $initVal }}"
             />
-            <small class="form-hint">Choose your preferred date</small>
           </label>
-          <label>Showtime
+          <label class="field-label">Showtime
             <select id="showtimeSelect" name="showtime_id" required @if(!isset($selectedMovie)) disabled @endif>
               @if(isset($selectedMovie))
                 <option value="" disabled selected>Select showtime</option>
@@ -92,51 +91,58 @@
                 <option value="" disabled selected>Select showtime</option>
               @endif
             </select>
-            <small class="form-hint">Select your preferred showtime</small>
           </label>
-          <label>Cinema
+          <label class="field-label">Cinema
             <select id="cinemaSelect" name="cinema" required disabled>
               <option value="" disabled selected>Select cinema</option>
-              <option value="Cinema 1">Cinema 1</option>
-              <option value="Cinema 2" @if(!config('app.cinema2_available')) disabled @endif>Cinema 2</option>
+              @if(isset($cinemas) && $cinemas->count() > 0)
+                @foreach($cinemas as $cinema)
+                  @php
+                    $status = $cinema->status ?? 'available';
+                    $isAvailable = $status === 'available';
+                    $suffix = $isAvailable ? '' : ($status === 'maintenance' ? ' (Maintenance)' : ' (Inactive)');
+                  @endphp
+                  <option value="{{ $cinema->name }}" @if(!$isAvailable) disabled @endif>
+                    {{ $cinema->name }}{{ $suffix }}
+                  </option>
+                @endforeach
+              @else
+              @endif
             </select>
-            @if(!config('app.cinema2_available'))
-              <small class="muted">Cinema 2 is currently unavailable.</small>
-            @endif
-            <small class="form-hint">Cinema availability depends on schedule</small>
           </label>
           </div>
 
   <div class="pax-field">
           <label class="pax-field__label">Pax</label>
           <div class="pax-split-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
-            <div>
+            <div class="pax-card" style="padding:10px;border-radius:10px;background:var(--panel-bg)">
               <label class="pax-field__label" for="regularCount">Regular</label>
-              <div class="pax-field__control" role="group" aria-label="Adjust regular pax">
-                <button type="button" class="pax-btn" data-dir="down" data-target="regularCount" aria-label="Decrease regular">
+              <div class="pax-field__control" role="group" aria-label="Adjust regular pax" style="height:36px;display:flex;align-items:center;gap:6px">
+                <button type="button" class="pax-btn" data-dir="down" data-target="regularCount" aria-label="Decrease regular" style="height:36px;min-width:42px">
                   <span aria-hidden="true">−</span>
                 </button>
-                <input id="regularCount" class="pax-field__input" name="quantity" type="number" inputmode="numeric" min="0" value="1" />
-                <button type="button" class="pax-btn" data-dir="up" data-target="regularCount" aria-label="Increase regular">
+                <input id="regularCount" class="pax-field__input" name="quantity" type="number" inputmode="numeric" min="0" value="1" style="flex:1;min-width:0;text-align:center" />
+                <button type="button" class="pax-btn" data-dir="up" data-target="regularCount" aria-label="Increase regular" style="height:36px;min-width:42px">
                   <span aria-hidden="true">+</span>
                 </button>
               </div>
             </div>
-            <div>
-              <label class="pax-field__label" for="seniorCount">Senior (with valid ID required at cinema)</label>
-              <div class="pax-field__control" role="group" aria-label="Adjust senior pax">
-                <button type="button" class="pax-btn" data-dir="down" data-target="seniorCount" aria-label="Decrease senior">
+            <div class="pax-card" style="padding:10px;border-radius:10px;background:var(--panel-bg)">
+              <label class="pax-field__label" for="seniorCount" style="display:flex;align-items:center;gap:8px">
+                <span>Senior</span>
+              </label>
+              <div class="pax-field__control" role="group" aria-label="Adjust senior pax" style="height:36px;display:flex;align-items:center;gap:6px">
+                <button type="button" class="pax-btn" data-dir="down" data-target="seniorCount" aria-label="Decrease senior" style="height:36px;min-width:42px">
                   <span aria-hidden="true">−</span>
                 </button>
-                <input id="seniorCount" class="pax-field__input" name="seniorQuantity" type="number" inputmode="numeric" min="0" value="0" />
-                <button type="button" class="pax-btn" data-dir="up" data-target="seniorCount" aria-label="Increase senior">
+                <input id="seniorCount" class="pax-field__input" name="seniorQuantity" type="number" inputmode="numeric" min="0" value="0" style="flex:1;min-width:0;text-align:center" />
+                <button type="button" class="pax-btn" data-dir="up" data-target="seniorCount" aria-label="Increase senior" style="height:36px;min-width:42px">
                   <span aria-hidden="true">+</span>
                 </button>
               </div>
-              <small class="form-hint">Senior discount applies only upon presentation of a valid Senior Citizen ID at the cinema.</small>
-            </div>
+              </div>
           </div>
-          <small class="booking-field__hint">20% senior discount applies only with a valid Senior Citizen ID.</small>
+          
         </div>
 
         @if(isset($selectedMovie))
@@ -148,35 +154,44 @@
 
         <!-- Payment Method -->
         <section id="payment" class="payment" style="display:none">
+          <h3 class="muted" style="margin-bottom:8px">Review &amp; Payment</h3>
           <h2 class="panel__title">Payment &amp; Confirmation</h2>
-          <aside class="summary summary--emphasis" aria-live="polite">
-            <div class="summary__row"><span>Movie:</span><strong id="sumMovie">Not selected yet</strong></div>
-            <div class="summary__row"><span>Date:</span><strong id="sumDate">Not selected yet</strong></div>
-            <div class="summary__row"><span>Showtime:</span><strong id="sumTime" class="is-placeholder">Not selected yet</strong></div>
-            <div class="summary__row"><span>Cinema:</span><strong id="sumCinema" class="is-placeholder">Not selected yet</strong></div>
-            <div class="summary__row"><span>Pax:</span><strong id="selectedSeats" class="is-placeholder">0</strong></div>
-            <div class="summary__row"><span>Breakdown:</span><strong><span id="breakdownLabel" class="is-placeholder">0 Regular, 0 Senior</span></strong></div>
-            <div class="summary__row"><span>Price per pax:</span><strong>₱<span id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
-              <div class="summary__row" id="discountInfo" style="display:none"><span>Discount:</span><strong><span id="discountLabel">—</span></strong></div>
-              <div class="summary__row" id="seniorVerifyRow" style="display:none"><span></span><strong>🎫 Senior ID to be verified at cinema</strong></div>
-            <div class="summary__divider"></div>
-            <div class="summary__row summary__total"><span>Total:</span><strong>₱<span id="totalPrice">—</span></strong></div>
+          <aside class="summary summary--emphasis" aria-live="polite" style="display:grid;grid-template-columns:180px 1fr;gap:10px 18px;align-items:start">
+            <div class="summary__row"><span class="muted">Movie:</span></div><div class="summary__val"><strong id="sumMovie">Not selected yet</strong></div>
+            <div class="summary__row"><span class="muted">Date:</span></div><div class="summary__val"><strong id="sumDate">Not selected yet</strong></div>
+            <div class="summary__row"><span class="muted">Showtime:</span></div><div class="summary__val"><strong id="sumTime" class="is-placeholder">Not selected yet</strong></div>
+            <div class="summary__row"><span class="muted">Cinema:</span></div><div class="summary__val"><strong id="sumCinema" class="is-placeholder">Not selected yet</strong></div>
+            <div class="summary__row"><span class="muted">Pax:</span></div><div class="summary__val"><strong id="selectedSeats" class="is-placeholder">0</strong></div>
+            <div class="summary__row"><span class="muted">Breakdown:</span></div><div class="summary__val"><strong><span id="breakdownLabel" class="is-placeholder">0 Regular, 0 Senior</span></strong></div>
+            <div class="summary__row"><span class="muted">Price / Pax:</span></div><div class="summary__val"><strong>₱<span id="seatPrice">{{ isset($selectedMovie) ? $selectedMovie->price : '—' }}</span></strong></div>
+            <div class="summary__row" id="discountInfo" style="display:none"><span class="muted">Discount:</span></div><div class="summary__val" id="discountVal" style="display:none"><strong><span id="discountLabel">—</span></strong></div>
+            <div class="summary__row" id="seniorVerifyRow" style="display:none"></div><div class="summary__val" id="seniorVerifyVal" style="display:none;margin-top:4px"><small class="muted">🪪 Senior ID verification required at cinema</small></div>
+            <div class="summary__divider" style="grid-column:1/-1;margin:10px 0;border-top:1px solid var(--divider)"></div>
+            <div class="summary__row summary__total" style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:8px;background:var(--accent-bg);border-top:1px solid rgba(255,255,255,0.08)"><span class="muted">Total:</span><strong style="color:var(--accent-text);font-size:1.2rem">₱<span id="totalPrice">—</span></strong></div>
           </aside>
           <div class="payment__content">
-            <div id="seniorConfirmWrap" style="display:none; margin:4px 0 12px;">
+            <div id="seniorConfirmWrap" style="display:none; margin:8px 0 12px;">
               <input type="hidden" name="senior_confirm" id="seniorConfirmHidden" value="0" />
               <label class="pmethod" style="display:flex; gap:8px; align-items:flex-start;">
                 <input type="checkbox" id="seniorConfirmChk" />
-                <span>I confirm that the senior(s) will present a valid Senior Citizen ID upon ticket claim.</span>
+                <span>I confirm that a valid Senior Citizen ID will be presented at ticket claim.</span>
               </label>
-              <div id="seniorConfirmError" class="form-error" style="display:none">Required: Please confirm Senior ID verification at the cinema to apply the discount.</div>
+              <div id="seniorConfirmError" class="form-error" style="display:none;font-size:0.85rem">Required: Please confirm Senior ID verification at the cinema to apply the discount.</div>
             </div>
-            <div class="payment__methods">
-              <label class="pmethod">
-                <input type="radio" name="payment_method" value="cash" checked /> Cash (reservation held for 48 hours)
+            <div class="payment__methods" style="border:1px solid var(--divider);padding:12px;border-radius:10px;display:flex;gap:18px;align-items:flex-start">
+              <label class="pmethod" style="display:flex;align-items:flex-start;gap:8px">
+                <input type="radio" name="payment_method" value="cash" checked />
+                <div>
+                  <div>Cash</div>
+                  <small class="muted small" style="margin-left:2px">Reservation held for 48 hours</small>
+                </div>
               </label>
-              <label class="pmethod">
-                <input type="radio" name="payment_method" value="gcash" /> GCash (instant confirmation)
+              <label class="pmethod" style="display:flex;align-items:flex-start;gap:8px">
+                <input type="radio" name="payment_method" value="gcash" />
+                <div>
+                  <div>GCash</div>
+                  <small class="muted small" style="margin-left:2px">Instant confirmation</small>
+                </div>
               </label>
             </div>
             <!-- Unified agreement: one required checkbox; text adapts to context -->
@@ -186,7 +201,7 @@
                 <input type="checkbox" id="agreementChk" />
                 <span id="agreementText">I agree to the terms shown below.</span>
               </label>
-              <div id="agreementError" class="form-error" style="display:none">Agreement is required to proceed.</div>
+              <div id="agreementError" class="form-error" style="display:none;color:#fda4af;font-size:0.85rem;margin-top:4px">⚠️ Please check this box to confirm you agree to the terms.</div>
             </div>
             @error('payment_method')
               <p class="text-red-500 text-sm">{{ $message }}</p>
@@ -195,18 +210,38 @@
             <!-- Context info (informational only, no extra checkboxes) -->
             <div id="contextInfo" class="muted" style="margin:6px 0 10px; display:none;"></div>
 
+            <!-- GCash requirements notice -->
+            <div id="gcashRequirements" class="gcash-requirements" style="display:none;margin:12px 0;padding:12px;border-radius:8px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);">
+              <div style="font-weight:600;margin-bottom:6px;color:var(--accent-text)">📱 GCash Payment Requirements:</div>
+              <ul style="margin:0;padding-left:20px;font-size:0.9rem;">
+                <li id="gcashReqReceipt" style="margin-bottom:4px;">
+                  <span class="req-icon">❌</span> Upload your GCash payment receipt
+                </li>
+                <li id="gcashReqAgree">
+                  <span class="req-icon">❌</span> Confirm agreement to terms
+                </li>
+              </ul>
+            </div>
+
             <div id="gcashUpload" class="upload-field" style="display:none;margin:10px 0;">
-              <label for="gcashReceipt">GCash receipt (image)</label>
-              <input id="gcashReceipt" type="file" name="gcash_receipt" accept="image/*">
+              <label for="gcashReceipt" style="font-weight:500;margin-bottom:6px;display:block;">GCash receipt (image) <span style="color:#fda4af">*</span></label>
+              <div class="file-input-wrapper" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <label for="gcashReceipt" class="btn btn--ghost" style="cursor:pointer;margin:0;">Choose File</label>
+                <input id="gcashReceipt" type="file" name="gcash_receipt" accept="image/*" style="display:none;">
+                <span id="gcashFileName" class="muted" style="font-size:0.9rem;">No file chosen</span>
+              </div>
+              <div id="gcashReceiptError" class="form-error" style="display:none;color:#fda4af;font-size:0.85rem;margin-top:6px">⚠️ Please upload your GCash payment receipt to proceed.</div>
               @error('gcash_receipt')
                 <p class="text-red-500 text-sm">{{ $message }}</p>
               @enderror
-              <small class="muted">Upload a clear screenshot/photo of your GCash payment.</small>
+              <small class="muted" style="display:block;margin-top:6px;">Upload a clear screenshot/photo of your GCash payment.</small>
             </div>
 
-            <button type="submit" class="btn btn-primary" disabled>Confirm & Place Booking</button>
-            <div class="form-hint">Senior discounts are validated upon ticket claim. Invalid claims will be charged the regular rate.</div>
-            <div class="form-help">Unpaid Cash reservations auto-cancel after 48 hours.</div>
+            <div style="display:flex;justify-content:center;margin-top:14px">
+              <button type="submit" class="btn btn-primary" disabled style="height:44px;box-shadow:0 0 0 rgba(0,0,0,0);transition:box-shadow 0.2s ease">Confirm &amp; Place Booking</button>
+            </div>
+            <div class="form-hint muted small" style="margin-top:8px;max-width:640px">Senior discounts are validated upon ticket claim. Invalid claims will be charged the regular rate.</div>
+            <div class="form-help muted small" style="max-width:640px">Unpaid Cash reservations auto-cancel after 48 hours.</div>
           </div>
         </section>
   </form>
@@ -282,10 +317,16 @@
       const seatPriceInput = document.getElementById('seatPriceInput');
       const selectedSeatsEl = document.getElementById('selectedSeats');
       const totalPriceEl = document.getElementById('totalPrice');
-  // Removed intermediate 'Continue to Payment' button for single-step confirmation
+      // Removed intermediate 'Continue to Payment' button for single-step confirmation
       const paymentSection = document.getElementById('payment');
-  const confirmBtn = form.querySelector('button[type="submit"]');
+      const confirmBtn = form.querySelector('button[type="submit"]');
       const gcashField = document.getElementById('gcashUpload');
+      const gcashRequirements = document.getElementById('gcashRequirements');
+      const gcashReceiptInput = document.getElementById('gcashReceipt');
+      const gcashFileName = document.getElementById('gcashFileName');
+      const gcashReceiptError = document.getElementById('gcashReceiptError');
+      const gcashReqReceipt = document.getElementById('gcashReqReceipt');
+      const gcashReqAgree = document.getElementById('gcashReqAgree');
       // Use unified agreement controls (existing in markup) instead of non-existent gcashAgree* elements
       const agreementWrap = document.getElementById('agreementWrap');
       const agreementChk = document.getElementById('agreementChk');
@@ -295,8 +336,8 @@
       const sumDate = document.getElementById('sumDate');
       const sumTime = document.getElementById('sumTime');
       const sumCinema = document.getElementById('sumCinema');
-    const seniorConfirmWrap = document.getElementById('seniorConfirmWrap');
-    const seniorConfirmChk = document.getElementById('seniorConfirmChk');
+      const seniorConfirmWrap = document.getElementById('seniorConfirmWrap');
+      const seniorConfirmChk = document.getElementById('seniorConfirmChk');
     const seniorConfirmHidden = document.getElementById('seniorConfirmHidden');
     const seniorConfirmError = document.getElementById('seniorConfirmError');
     const seniorVerifyRow = document.getElementById('seniorVerifyRow');
@@ -352,19 +393,24 @@
         }
         const discountInfo = document.getElementById('discountInfo');
         const discountLabel = document.getElementById('discountLabel');
+        const discountVal = document.getElementById('discountVal');
         const discountAmt = price * sen * 0.2;
         if (discountInfo) {
           if (sen > 0) {
             discountInfo.style.display = 'flex';
+            if (discountVal) discountVal.style.display = 'flex';
             if (discountLabel) discountLabel.textContent = `₱${discountAmt.toFixed(2).replace(/\.00$/, '')} (20% on seniors)`;
           } else {
             discountInfo.style.display = 'none';
+            if (discountVal) discountVal.style.display = 'none';
           }
         }
 
         // Show senior verification note in summary
         if (seniorVerifyRow) {
           seniorVerifyRow.style.display = sen > 0 ? 'flex' : 'none';
+          const v = document.getElementById('seniorVerifyVal');
+          if (v) v.style.display = sen > 0 ? 'flex' : 'none';
         }
 
         // Show/hide senior confirmation checkbox in payment
@@ -386,20 +432,56 @@
         if (confirmBtn) {
           // enable confirm only when payment is visible, method selected and if gcash then file present, and senior confirmation satisfied
           const method = document.querySelector('input[name="payment_method"]:checked')?.value;
-          const receiptOk = method !== 'gcash' || !!document.getElementById('gcashReceipt')?.files?.length;
+          const hasReceipt = !!gcashReceiptInput?.files?.length;
+          const receiptOk = method !== 'gcash' || hasReceipt;
           // Enforce senior agreement when senior pax > 0
           const seniorOk = (sen <= 0) || !!seniorConfirmChk?.checked;
           // For GCash, require agreement checkbox; for Cash, no agreement needed
-          const gcashAgreeOk = method !== 'gcash' || !!agreementChk?.checked;
+          const hasAgreement = !!agreementChk?.checked;
+          const gcashAgreeOk = method !== 'gcash' || hasAgreement;
+          
+          // Update GCash requirements checklist
+          if (method === 'gcash' && gcashRequirements) {
+            gcashRequirements.style.display = 'block';
+            if (gcashReqReceipt) {
+              gcashReqReceipt.innerHTML = hasReceipt 
+                ? '<span style="color:#4ade80">✓</span> GCash receipt uploaded'
+                : '<span style="color:#fda4af">○</span> Upload your GCash payment receipt';
+            }
+            if (gcashReqAgree) {
+              gcashReqAgree.innerHTML = hasAgreement
+                ? '<span style="color:#4ade80">✓</span> Terms agreement confirmed'
+                : '<span style="color:#fda4af">○</span> Confirm agreement to terms';
+            }
+          } else if (gcashRequirements) {
+            gcashRequirements.style.display = 'none';
+          }
+          
+          // Show/hide inline errors
           if (sen > 0 && seniorConfirmError) {
             seniorConfirmError.style.display = seniorOk ? 'none' : 'block';
           }
+          // Only show errors after user has interacted (not immediately)
+          // GCash receipt error shown only if GCash selected and no file
+          if (method === 'gcash' && gcashReceiptError) {
+            // Show error if form was attempted or user changed payment method
+            gcashReceiptError.style.display = 'none'; // Will be shown on submit attempt
+          }
           if (method === 'gcash' && agreementError) {
-            agreementError.style.display = gcashAgreeOk ? 'none' : 'block';
+            agreementError.style.display = 'none'; // Will be shown on submit attempt
           } else if (agreementError) {
             agreementError.style.display = 'none';
           }
+          
+          const allGcashOk = method !== 'gcash' || (hasReceipt && hasAgreement);
           confirmBtn.disabled = !(paymentSection?.style.display === 'block' && method && receiptOk && qty > 0 && allSelected() && seniorOk && gcashAgreeOk);
+          
+          // Update button text to indicate what's missing
+          if (method === 'gcash' && !allGcashOk && paymentSection?.style.display === 'block') {
+            confirmBtn.textContent = hasReceipt ? 'Confirm & Place Booking' : 'Upload Receipt to Continue';
+          } else {
+            confirmBtn.textContent = 'Confirm & Place Booking';
+          }
         }
 
         // Update summary labels
@@ -466,9 +548,12 @@
       function toggleReceipt() {
         try {
           const method = document.querySelector('input[name="payment_method"]:checked')?.value;
-          if (gcashField) gcashField.style.display = method === 'gcash' ? 'block' : 'none';
+          const isGcash = method === 'gcash';
+          
+          if (gcashField) gcashField.style.display = isGcash ? 'block' : 'none';
+          if (gcashRequirements) gcashRequirements.style.display = isGcash ? 'block' : 'none';
+          
           if (agreementWrap) {
-            const isGcash = method === 'gcash';
             agreementWrap.style.display = isGcash ? 'block' : 'none';
             if (!isGcash) {
               if (agreementHidden) agreementHidden.value = '0';
@@ -476,8 +561,29 @@
               if (agreementError) agreementError.style.display = 'none';
             }
           }
-        } catch (e) {}
+          
+          // Reset file display when switching away from GCash
+          if (!isGcash && gcashReceiptInput) {
+            gcashReceiptInput.value = '';
+            if (gcashFileName) gcashFileName.textContent = 'No file chosen';
+            if (gcashReceiptError) gcashReceiptError.style.display = 'none';
+          }
+        } catch (e) { console.error('toggleReceipt error:', e); }
       }
+      
+      // Handle file input change to show file name
+      if (gcashReceiptInput) {
+        gcashReceiptInput.addEventListener('change', function() {
+          const file = gcashReceiptInput.files?.[0];
+          if (gcashFileName) {
+            gcashFileName.textContent = file ? file.name : 'No file chosen';
+            gcashFileName.style.color = file ? 'var(--accent-text)' : '';
+          }
+          if (gcashReceiptError) gcashReceiptError.style.display = 'none';
+          recalc();
+        });
+      }
+      
       document.querySelectorAll('input[name="payment_method"]').forEach(function(radio){
         radio.addEventListener('change', function(){ toggleReceipt(); recalc(); });
       });
@@ -491,12 +597,60 @@
         recalc();
       });
       toggleReceipt();
-      // No proceed button listeners needed
-      // prevent submit without selections
+      
+      // Validate and show specific errors on submit attempt
       form.addEventListener('submit', function(e){
-        if (confirmBtn?.disabled) {
-          e.preventDefault();
+        const method = document.querySelector('input[name="payment_method"]:checked')?.value;
+        const isGcash = method === 'gcash';
+        const sen = Math.max(0, parseInt(seniorInput?.value || '0', 10));
+
+        let firstErrorEl = null;
+        let hasErrors = false;
+
+        // Seniors require confirmation checkbox
+        if (sen > 0 && !seniorConfirmChk?.checked) {
+          if (seniorConfirmError) seniorConfirmError.style.display = 'block';
+          firstErrorEl = firstErrorEl || seniorConfirmWrap;
+          hasErrors = true;
         }
+
+        // GCash requires receipt + agreement
+        if (isGcash) {
+          const hasReceipt = !!gcashReceiptInput?.files?.length;
+          const hasAgreement = !!agreementChk?.checked;
+
+          if (!hasAgreement) {
+            if (agreementError) agreementError.style.display = 'block';
+            firstErrorEl = firstErrorEl || agreementWrap;
+            hasErrors = true;
+          }
+
+          if (!hasReceipt) {
+            if (gcashReceiptError) gcashReceiptError.style.display = 'block';
+            firstErrorEl = firstErrorEl || gcashField;
+            hasErrors = true;
+          }
+        }
+
+        // If still disabled, treat as invalid and show user where to fix
+        if (confirmBtn?.disabled) {
+          hasErrors = true;
+          firstErrorEl = firstErrorEl || paymentSection;
+        }
+
+        if (hasErrors) {
+          e.preventDefault();
+          firstErrorEl?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+      });
+
+      // Button hover glow
+      confirmBtn?.addEventListener('mouseenter', function(){
+        confirmBtn.style.boxShadow = '0 0 10px rgba(124,58,237,0.45)';
+      });
+      confirmBtn?.addEventListener('mouseleave', function(){
+        confirmBtn.style.boxShadow = 'none';
       });
 
       // Disable showtime/cinema until movie+date selected
@@ -505,7 +659,15 @@
         const hasDate = !!document.getElementById('show_date')?.value;
         timeSel.disabled = !(hasMovie && hasDate);
         // enable cinema only when showtime chosen
-        cinemaSel.disabled = !timeSel.value;
+        const shouldEnableCinema = !!timeSel.value;
+        cinemaSel.disabled = !shouldEnableCinema;
+        if (shouldEnableCinema) {
+          // Reload cinemas based on current selection
+          reloadCinemas();
+        } else {
+          // Reset cinema options to blank
+          cinemaSel.innerHTML = '<option value="" disabled selected>Select cinema</option>';
+        }
       }
       gateSelectors();
       ['change','input'].forEach(function(ev){
@@ -513,6 +675,45 @@
         movieSel?.addEventListener(ev, function(){ gateSelectors(); });
         timeSel?.addEventListener(ev, function(){ gateSelectors(); recalc(); });
       });
+
+      async function reloadCinemas() {
+        try {
+          // Remember previously selected cinema to preserve selection after reload
+          const prev = cinemaSel.value;
+          // Fetch all cinemas; UI will disable non-available
+          const resp = await fetch('/api/cinemas', { headers: { 'Accept': 'application/json' } });
+          if (!resp.ok) return;
+          const list = await resp.json();
+          const opts = [
+            { value: '', label: 'Select cinema', disabled: true, selected: true }
+          ];
+          list.forEach(function(c){
+            const isAvail = (c.status === 'available');
+            const suffix = isAvail ? '' : (c.status === 'maintenance' ? ' (Maintenance)' : (c.status === 'unavailable' ? ' (Unavailable)' : ' (Inactive)'));
+            opts.push({ value: c.name, label: c.name + suffix, disabled: !isAvail });
+          });
+          cinemaSel.innerHTML = '';
+          opts.forEach(function(o){
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            if (o.disabled) opt.disabled = true;
+            if (o.selected) opt.selected = true;
+            cinemaSel.appendChild(opt);
+          });
+
+          // Restore previous cinema if it still exists and is selectable
+          if (prev) {
+            const match = Array.from(cinemaSel.options).find(op => op.value === prev && !op.disabled);
+            if (match) cinemaSel.value = prev;
+          }
+
+          // Recalculate UI state after options change
+          recalc();
+        } catch (e) {
+          // Silent fail; leave current options
+        }
+      }
     })();
   </script>
 @endpush

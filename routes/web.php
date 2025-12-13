@@ -3,12 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MovieController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\SeatController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\CartController;
+use App\Models\Cinema;
 
 /*
 |--------------------------------------------------------------------------
@@ -194,6 +196,83 @@ Route::middleware(['auth'])->group(function () {
             $booking->update(['status' => 'Cancelled']);
         }
         return redirect()->route('admin')->with('message', 'Booking cancelled');
+    });
+
+    Route::post('/admin/cinemas/{id}', function (\Illuminate\Http\Request $request, $id) {
+        Log::info('[Cinema Update] Received request', [
+            'cinema_id' => $id,
+            'status' => $request->input('status'),
+            'capacity' => $request->input('capacity'),
+        ]);
+
+        if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
+            $error = ['error' => 'Unauthorized'];
+            Log::warning('[Cinema Update] Unauthorized attempt', ['cinema_id' => $id]);
+            return $request->expectsJson()
+                ? response()->json($error, 403)
+                : redirect()->route('home')->with('error', 'Unauthorized');
+        }
+
+        /** @var \App\Models\Cinema|null $cinema */
+        $cinema = Cinema::find($id);
+        if (!$cinema) {
+            $error = ['error' => 'Cinema not found'];
+            Log::error('[Cinema Update] Cinema not found', ['cinema_id' => $id]);
+            return $request->expectsJson()
+                ? response()->json($error, 404)
+                : redirect()->route('admin')->with('error', 'Cinema not found');
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:available,maintenance,unavailable,inactive',
+            'capacity' => 'nullable|integer|min:1|max:500',
+        ]);
+
+        $cinema->status = $validated['status'];
+        if (array_key_exists('capacity', $validated) && $validated['capacity'] !== null) {
+            $cinema->capacity = (int) $validated['capacity'];
+        }
+        $cinema->save();
+
+        Log::info('[Cinema Update] Successfully updated', [
+            'cinema_id' => $cinema->id,
+            'name' => $cinema->name,
+            'status' => $cinema->status,
+            'capacity' => $cinema->capacity,
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'cinema' => [
+                    'id' => $cinema->id,
+                    'name' => $cinema->name,
+                    'status' => $cinema->status,
+                    'capacity' => (int) $cinema->capacity,
+                ],
+                'message' => 'Cinema updated',
+            ]);
+        }
+
+        return redirect()->route('admin')->with('message', 'Cinema updated successfully!');
+    });
+    
+    // API: List cinemas (optional status filter). Used by client booking UI.
+    Route::get('/api/cinemas', function (\Illuminate\Http\Request $request) {
+        $status = $request->query('status');
+        $query = Cinema::query()->orderBy('name');
+        if ($status && in_array($status, ['available','maintenance','unavailable','inactive'])) {
+            $query->where('status', $status);
+        }
+        $cinemas = $query->get()->map(function ($c) {
+            return [
+                'id' => $c->id,
+                'name' => $c->name,
+                'capacity' => (int) ($c->capacity ?? 120),
+                'status' => $c->status ?? 'available',
+            ];
+        });
+        return response()->json($cinemas);
     });
 });
 

@@ -118,12 +118,22 @@
                     <div class="form-group">
                         <label>Cinema</label>
                         <select id="walkinCinema">
-                            <option value="Cinema 1">Cinema 1</option>
-                            <option value="Cinema 2" @if(!config('app.cinema2_available')) disabled @endif>Cinema 2</option>
+                                                        @if(isset($cinemas) && $cinemas->count() > 0)
+                                                            @foreach($cinemas as $cinema)
+                                                                @php
+                                                                    $status = $cinema->status ?? 'available';
+                                                                    $isAvailable = $status === 'available';
+                                                                    $suffix = $isAvailable ? '' : ($status === 'maintenance' ? ' (Maintenance)' : ' (Inactive)');
+                                                                @endphp
+                                                                <option value="{{ $cinema->name }}" @if(!$isAvailable) disabled @endif>
+                                                                    {{ $cinema->name }}{{ $suffix }}
+                                                                </option>
+                                                            @endforeach
+                                                        @else
+                                                            <option value="" disabled>No cinemas available</option>
+                                                        @endif
                         </select>
-                        @if(!config('app.cinema2_available'))
-                          <small class="muted">Cinema 2 is currently unavailable.</small>
-                        @endif
+                                                <small class="muted">Unavailable cinemas can’t be selected.</small>
                     </div>
                 </div>
                 <div id="selectionSummary" class="muted" style="display:none; margin:8px 0 0;">Selected: <span id="summaryText"></span></div>
