@@ -22,12 +22,15 @@ use App\Models\Cinema;
 Route::get('/', [PageController::class, 'index'])->name('home');
 Route::middleware(['auth', \App\Http\Middleware\NotAdmin::class])->group(function () {
     Route::get('/booking', [PageController::class, 'booking'])->name('booking');
+    Route::get('/my-bookings', [PageController::class, 'myBookings'])->name('my-bookings');
     // Web Cart routes (form posts)
     Route::post('/cart/add', [CartController::class, 'store'])->name('cart.add');
     Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
     Route::post('/cart/{index}/delete', [CartController::class, 'destroy'])->name('cart.remove');
     // Web Booking checkout
     Route::post('/bookings/place', [BookingController::class, 'store'])->name('bookings.place');
+    // Booking cancellation
+    Route::put('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
 });
 Route::get('/login', [PageController::class, 'login'])->name('login');
 Route::get('/forgot-password', [PageController::class, 'forgotPassword'])->name('password.request');

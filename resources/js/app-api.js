@@ -89,6 +89,135 @@ async function apiCall(endpoint, options = {}) {
   }
 }
 
+// ---------- Notification System ----------
+function showNotification(message, type = 'info') {
+  // Remove any existing notifications
+  const existing = document.querySelector('.toast-notification');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = `toast-notification toast-notification--${type}`;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
+  
+  const icon = {
+    success: '✓',
+    error: '✕',
+    warning: '⚠',
+    info: 'ℹ'
+  }[type] || 'ℹ';
+  
+  toast.innerHTML = `
+    <span class="toast-notification__icon" aria-hidden="true">${icon}</span>
+    <span class="toast-notification__message">${message}</span>
+    <button class="toast-notification__close" aria-label="Close notification">×</button>
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // Auto dismiss after 5 seconds
+  const dismissTimer = setTimeout(() => {
+    dismissToast(toast);
+  }, 5000);
+  
+  // Manual dismiss
+  const closeBtn = toast.querySelector('.toast-notification__close');
+  closeBtn.addEventListener('click', () => {
+    clearTimeout(dismissTimer);
+    dismissToast(toast);
+  });
+  
+  // Animate in
+  setTimeout(() => toast.classList.add('toast-notification--visible'), 10);
+}
+
+function dismissToast(toast) {
+  toast.classList.remove('toast-notification--visible');
+  setTimeout(() => toast.remove(), 300);
+}
+
+// ---------- Loading State Helper ----------
+function setLoading(button, isLoading) {
+  if (!button) return;
+  
+  if (isLoading) {
+    button.disabled = true;
+    button.setAttribute('data-original-text', button.textContent);
+    button.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading...';
+  } else {
+    button.disabled = false;
+    button.textContent = button.getAttribute('data-original-text') || button.textContent;
+    button.removeAttribute('data-original-text');
+  }
+}
+
+// ---------- Confirmation Dialog System ----------
+function showConfirmDialog(message, onConfirm, onCancel = null) {
+  // Remove any existing dialogs
+  const existing = document.querySelector('.confirm-dialog-overlay');
+  if (existing) existing.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-dialog-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-dialog" role="alertdialog" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
+      <div class="confirm-dialog__icon" aria-hidden="true">⚠️</div>
+      <h3 id="confirmTitle" class="confirm-dialog__title">Confirm Action</h3>
+      <p id="confirmDesc" class="confirm-dialog__message">${message}</p>
+      <div class="confirm-dialog__actions">
+        <button class="confirm-dialog__button confirm-dialog__button--secondary" data-action="cancel">Cancel</button>
+        <button class="confirm-dialog__button confirm-dialog__button--primary" data-action="confirm">Confirm</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  // Focus trap
+  const dialog = overlay.querySelector('.confirm-dialog');
+  const confirmBtn = dialog.querySelector('[data-action="confirm"]');
+  const cancelBtn = dialog.querySelector('[data-action="cancel"]');
+  
+  const cleanup = () => {
+    overlay.classList.remove('confirm-dialog-overlay--visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  
+  cancelBtn.addEventListener('click', () => {
+    cleanup();
+    if (onCancel) onCancel();
+  });
+  
+  confirmBtn.addEventListener('click', () => {
+    cleanup();
+    if (onConfirm) onConfirm();
+  });
+  
+  // ESC key to cancel
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      cleanup();
+      if (onCancel) onCancel();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  
+  // Click overlay to cancel
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      cleanup();
+      if (onCancel) onCancel();
+    }
+  });
+  
+  // Animate in
+  setTimeout(() => {
+    overlay.classList.add('confirm-dialog-overlay--visible');
+    confirmBtn.focus();
+  }, 10);
+}
+
 // ---------- Mobile Navigation ----------
 function setupMobileNav() {
   const toggle = document.querySelector('.mobile-toggle');
@@ -109,8 +238,56 @@ function initAuthPage() {}
 
 // ---------- Home Page ----------
 function initHomePage() {
-  // Movies are already rendered server-side in index.blade.php
-  // No JS needed unless we add filtering/search functionality later
+  // Setup movie search functionality
+  const searchInput = document.getElementById('movieSearch');
+  const movieSections = document.querySelectorAll('[data-filter-section]');
+  
+  if (searchInput && movieSections.length > 0) {
+    // Debounce search input
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        filterMovies(e.target.value.toLowerCase().trim());
+      }, 300);
+    });
+  }
+  
+  function filterMovies(searchTerm) {
+    movieSections.forEach(section => {
+      const movieRow = section.querySelector('[data-movie-row]');
+      const emptyMessage = section.querySelector('[data-empty-message]');
+      const movieCards = section.querySelectorAll('[data-movie-card]');
+      
+      if (!movieRow || !movieCards.length) return;
+      
+      let visibleCount = 0;
+      
+      movieCards.forEach(card => {
+        const title = card.getAttribute('data-title') || '';
+        const matches = !searchTerm || title.includes(searchTerm);
+        
+        card.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+      });
+      
+      // Show/hide empty message
+      if (emptyMessage) {
+        if (visibleCount === 0 && searchTerm) {
+          emptyMessage.hidden = false;
+        } else {
+          emptyMessage.hidden = true;
+        }
+      }
+      
+      // Hide entire section if no matches
+      if (visibleCount === 0 && searchTerm) {
+        section.style.display = 'none';
+      } else {
+        section.style.display = '';
+      }
+    });
+  }
 }
 
 // ---------- Booking Page ----------
@@ -122,6 +299,8 @@ async function initAdminPage() {
   
   // Add movie
   if (movieForm) {
+    const submitBtn = movieForm.querySelector('button[type="submit"]');
+    
     movieForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (movieErr) movieErr.textContent = '';
@@ -129,6 +308,7 @@ async function initAdminPage() {
       const times = mvTimes.value.split('\n').map(t => t.trim()).filter(Boolean);
 
       try {
+        setLoading(submitBtn, true);
         await apiCall('/movies', {
           method: 'POST',
           body: JSON.stringify({
@@ -140,10 +320,16 @@ async function initAdminPage() {
           })
         });
 
-        alert('Movie added successfully!');
-        window.location.reload();
+        showNotification('Movie added successfully!', 'success');
+        
+        // Wait a bit before reload to let user see success message
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } catch (err) {
         if (movieErr) movieErr.textContent = err.message;
+        showNotification(err.message || 'Failed to add movie', 'error');
+        setLoading(submitBtn, false);
       }
     });
   }
@@ -524,12 +710,18 @@ async function initWalkinBooking() {
     };
 
     try {
+      setLoading(confirmBookingBtn, true);
       await apiCall('/bookings', { method: 'POST', body: JSON.stringify(payload) });
-      alert('Walk-in booking created.');
-      location.hash = '#scannerMode';
-      location.reload();
+      showNotification('Walk-in booking created successfully!', 'success');
+      
+      // Wait a bit before redirect to let user see the success message
+      setTimeout(() => {
+        location.hash = '#scannerMode';
+        location.reload();
+      }, 1500);
     } catch (err) {
-      alert(err.message || 'Booking failed');
+      showNotification(err.message || 'Booking failed', 'error');
+      setLoading(confirmBookingBtn, false);
     }
   });
 }
@@ -558,9 +750,30 @@ function initQRTestPage() {
   });
 }
 
+// ---------- Email Verification Handler ----------
+function setupEmailVerificationHandler() {
+  const resendBtn = document.getElementById('resendVerificationBtn');
+  
+  if (resendBtn) {
+    resendBtn.addEventListener('click', async () => {
+      setLoading(resendBtn, true);
+      
+      try {
+        await apiCall('/auth/email/resend', { method: 'POST' });
+        showNotification('Verification email sent! Please check your inbox.', 'success');
+      } catch (err) {
+        showNotification(err.message || 'Failed to send verification email', 'error');
+      } finally {
+        setLoading(resendBtn, false);
+      }
+    });
+  }
+}
+
 // ---------- Global Initialization ----------
 async function initGlobal() {
   setupMobileNav();
+  setupEmailVerificationHandler();
 
   // Set current year in footer
   if (yearEl) yearEl.textContent = new Date().getFullYear();
