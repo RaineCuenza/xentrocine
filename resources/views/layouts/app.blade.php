@@ -118,7 +118,7 @@
                 </form>
             @else
                 <span class="account__who">Guest</span>
-                <a class="btn btn--primary" href="{{ route('login') }}">Log in / Sign up</a>
+                <a class="btn btn--primary" href="{{ route('login') }}">Log in</a>
             @endauth
         </div>
     </header>

@@ -28,6 +28,7 @@ Route::middleware(['auth', \App\Http\Middleware\NotAdmin::class])->group(functio
     Route::post('/bookings/place', [BookingController::class, 'store'])->name('bookings.place');
 });
 Route::get('/login', [PageController::class, 'login'])->name('login');
+Route::get('/forgot-password', [PageController::class, 'forgotPassword'])->name('password.request');
 Route::get('/signup', [PageController::class, 'signup'])->name('signup');
 Route::get('/admin', [PageController::class, 'admin'])->name('admin');
 Route::get('/staff', [PageController::class, 'staff'])->name('staff');
@@ -43,6 +44,10 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
 Route::post('/login', [AuthController::class, 'webLogin'])->name('auth.login.submit');
 Route::post('/signup', [AuthController::class, 'webSignup'])->name('auth.signup.submit');
 Route::post('/logout', [AuthController::class, 'webLogout'])->name('auth.logout');
+// Password reset (web forms)
+Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [AuthController::class, 'doReset'])->name('password.update');
 
 // Move cart and booking routes into not.admin group above
 

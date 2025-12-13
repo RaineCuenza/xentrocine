@@ -9,6 +9,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -285,5 +286,63 @@ class AuthController extends Controller
             return redirect('/admin?verified=success')->with('message', 'Email verified successfully.');
         }
         return redirect('/booking?verified=success')->with('message', 'Email verified successfully! You can now book tickets.');
+    }
+
+    /**
+     * Send password reset link (web)
+     */
+    public function sendResetLink(Request $request)
+    {
+        try {
+            $request->validate(['email' => 'required|email']);
+            $status = Password::sendResetLink(['email' => strtolower(trim($request->input('email')))]);
+
+            return back()->with('status', 'If your email exists, we sent a reset link.');
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not send reset link. Please try again.')->withInput();
+        }
+    }
+
+    /**
+     * Show reset password form (web)
+     */
+    public function showResetForm(Request $request, string $token)
+    {
+        // Show a simple reset form; email may be provided via query
+        return view('reset-password', ['token' => $token, 'email' => $request->query('email')]);
+    }
+
+    /**
+     * Handle password reset submission (web)
+     */
+    public function doReset(Request $request)
+    {
+        try {
+            $request->validate([
+                'token' => 'required',
+                'email' => 'required|email',
+                'password' => 'required|string|min:6|confirmed',
+            ]);
+
+            $status = Password::reset(
+                $request->only('email', 'password', 'password_confirmation', 'token'),
+                function (User $user, string $password) {
+                    $user->password = $password; // auto-hashed via cast
+                    $user->save();
+                }
+            );
+
+            if ($status === Password::PASSWORD_RESET) {
+                return redirect()->route('login')->with('status', 'Password reset successfully. Please login.');
+            }
+
+            return back()->with('error', 'Reset failed. Please request a new link.')->withInput();
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Unexpected error. Please try again.')->withInput();
+        }
     }
 }

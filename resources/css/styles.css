@@ -238,9 +238,27 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   color: var(--text);
 }
 
-.authform{display:grid; gap:10px; max-width:520px; background:var(--panel); border:1px solid var(--outline); border-radius:12px; padding:14px}
+.auth-page{min-height:calc(100vh - 140px); display:grid; place-items:center; padding:clamp(12px, 3vw, 24px)}
+.auth-card{width:min(520px, 92vw); background:var(--panel); border:1px solid var(--outline); border-radius:18px; box-shadow:var(--shadow); padding:clamp(16px, 4vw, 24px)}
+.auth-card__header{display:grid; gap:6px; margin-bottom:10px}
+.auth-title{margin:0; font-size:clamp(1.6rem, 3.6vw, 2rem); font-weight:800}
+.auth-subtitle{margin:0; color:var(--muted)}
+.authform{display:grid; gap:12px}
 .form-error{color:#ff9aa2; min-height:20px}
 .form-help{color:var(--muted); font-size:.9rem}
+
+/* Input with right action (eye toggle) */
+.input-with-action{position:relative; display:flex; align-items:center}
+.input-with-action input{width:100%; padding-right:44px}
+.input-action{position:absolute; right:8px; top:50%; transform:translateY(-50%); display:inline-grid; place-items:center; width:34px; height:34px; border:none; border-radius:10px; background:transparent; color:#9aa3b2; cursor:pointer}
+.input-action:hover,.input-action:focus-visible{color:#e7edf3; background:#1a1f29}
+.input-action svg{display:block}
+.input-action.is-on svg{opacity:.9}
+
+/* Minor form alignment helpers */
+.form-row{display:flex; justify-content:flex-end}
+.forgot-link{font-size:.9rem; color:#cfe3ff}
+.forgot-link:hover{color:#fff}
 
 /* Tabs */
 .tabs{display:flex; gap:8px; margin:8px 0 12px}

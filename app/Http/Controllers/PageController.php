@@ -279,6 +279,17 @@ class PageController extends Controller
     }
 
     /**
+     * Forgot password page
+     */
+    public function forgotPassword()
+    {
+        if (Auth::check()) {
+            return redirect()->route('home');
+        }
+        return view('forgot-password');
+    }
+
+    /**
      * Signup page
      */
     public function signup()
