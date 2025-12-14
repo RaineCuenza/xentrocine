@@ -33,6 +33,7 @@ Route::get('/login', [PageController::class, 'login'])->name('login');
 Route::get('/forgot-password', [PageController::class, 'forgotPassword'])->name('password.request');
 Route::get('/signup', [PageController::class, 'signup'])->name('signup');
 Route::get('/admin', [PageController::class, 'admin'])->name('admin');
+Route::get('/admin/manage', [PageController::class, 'adminManage'])->name('admin.manage');
 Route::get('/staff', [PageController::class, 'staff'])->name('staff');
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/qr-test', [PageController::class, 'qrTest'])->name('qr-test');
@@ -165,7 +166,65 @@ Route::middleware(['auth'])->group(function () {
         foreach (array_filter(array_map('trim', explode(',', $validated['times']))) as $time) {
             App\Models\Showtime::create(['movie_id' => $movie->id, 'showtime' => $time]);
         }
-        return redirect()->route('admin')->with('message', 'Movie added');
+        return redirect()->route('admin.manage')->with('message', 'Movie added');
+    });
+
+    Route::post('/admin/movies/{id}/update', function (\Illuminate\Http\Request $request, $id) {
+        if (!Auth::check() || (Auth::user()->role ?? 'client') !== 'admin') {
+            return redirect()->route('home')->with('error', 'Unauthorized');
+        }
+
+        $movie = App\Models\Movie::find($id);
+        if (!$movie) {
+            return redirect()->route('admin.manage')->with('error', 'Movie not found');
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'poster' => 'nullable|string|max:500',
+            'audience' => 'required|in:G,PG,R-13,R-16,R-18',
+            'times' => 'required|string',
+            'listing_start' => 'required|date',
+            'listing_end' => 'required|date|after_or_equal:listing_start',
+        ]);
+
+        // Enforce max 30 days
+        $start = \Carbon\Carbon::parse($validated['listing_start']);
+        $end = \Carbon\Carbon::parse($validated['listing_end']);
+        if ($end->gt($start->copy()->addDays(30))) {
+            return back()->withErrors([
+                'listing_end' => 'A movie can only run for a maximum of 1 month from its start date.'
+            ])->withInput();
+        }
+
+        // Handle poster
+        $posterPath = null;
+        if ($request->hasFile('poster')) {
+            $posterPath = $request->file('poster')->store('posters', 'public');
+        } else {
+            $posterPath = trim($request->input('poster', '')) ?: $movie->poster;
+            if ($posterPath && str_starts_with($posterPath, 'data:')) {
+                return back()->withErrors(['poster' => 'Please upload an image file or use a hosted URL, not a pasted data URI.'])->withInput();
+            }
+        }
+
+        $movie->update([
+            'title' => trim($validated['title']),
+            'price' => $validated['price'],
+            'poster' => $posterPath,
+            'audience' => $validated['audience'],
+            'listing_start' => $start->toDateString(),
+            'listing_end' => $end->toDateString(),
+        ]);
+
+        // Update showtimes - delete old ones and create new
+        App\Models\Showtime::where('movie_id', $movie->id)->delete();
+        foreach (array_filter(array_map('trim', explode(',', $validated['times']))) as $time) {
+            App\Models\Showtime::create(['movie_id' => $movie->id, 'showtime' => $time]);
+        }
+
+        return redirect()->route('admin.manage')->with('message', 'Movie updated');
     });
 
     Route::post('/admin/movies/{id}/status', function (\Illuminate\Http\Request $request, $id) {
@@ -199,7 +258,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         }
 
-        return redirect()->route('admin')->with('message', 'Movie status updated');
+        return redirect()->route('admin.manage')->with('message', 'Movie status updated');
     });
 
     // Remove hard delete in favor of archive/unarchive via status route above
@@ -212,7 +271,7 @@ Route::middleware(['auth'])->group(function () {
         if ($booking && $booking->status !== 'Cancelled') {
             $booking->update(['status' => 'Cancelled']);
         }
-        return redirect()->route('admin')->with('message', 'Booking cancelled');
+        return redirect()->route('admin.manage')->with('message', 'Booking cancelled');
     });
 
     Route::post('/admin/cinemas/{id}', function (\Illuminate\Http\Request $request, $id) {
@@ -237,7 +296,7 @@ Route::middleware(['auth'])->group(function () {
             Log::error('[Cinema Update] Cinema not found', ['cinema_id' => $id]);
             return $request->expectsJson()
                 ? response()->json($error, 404)
-                : redirect()->route('admin')->with('error', 'Cinema not found');
+                : redirect()->route('admin.manage')->with('error', 'Cinema not found');
         }
 
         $validated = $request->validate([
@@ -271,7 +330,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         }
 
-        return redirect()->route('admin')->with('message', 'Cinema updated successfully!');
+        return redirect()->route('admin.manage')->with('message', 'Cinema updated successfully!');
     });
     
     // API: List cinemas (optional status filter). Used by client booking UI.
