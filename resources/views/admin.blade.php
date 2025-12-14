@@ -168,7 +168,11 @@
               @foreach($cinemas as $cinema)
                 @php
                   $status = $cinema->status ?? 'available';
-                  $badgeStatus = $status === 'available' ? 'paid' : ($status === 'maintenance' ? 'pending' : ($status === 'unavailable' ? 'cancelled' : 'cancelled'));
+                  $badgeStatus = $status === 'available'
+                    ? 'available'
+                    : ($status === 'maintenance'
+                      ? 'maintenance'
+                      : ($status === 'unavailable' ? 'unavailable' : 'inactive'));
                   $label = $status === 'available' ? 'Available' : ($status === 'maintenance' ? 'Maintenance' : ($status === 'unavailable' ? 'Unavailable' : 'Inactive'));
                 @endphp
                 <form action="{{ url('/admin/cinemas/' . $cinema->id) }}" method="POST" class="admin-form" style="padding:12px;border:1px solid var(--divider);border-radius:12px;background:rgba(255,255,255,0.02);">

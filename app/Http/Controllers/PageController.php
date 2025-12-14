@@ -55,12 +55,25 @@ class PageController extends Controller
 
                 $nowShowing = [];
                 $upcoming = [];
+                $expectedRevenueTotal = 0;
+                $upcomingReservedTotal = 0;
+                $activeBooked = 0;
+                $activeCapacity = 0;
+                $nextScreeningTime = null;
 
                 foreach ($movies as $movie) {
                     foreach ($movie->showtimes as $st) {
+                        $durationMin = (int) ($movie->duration ?? 120);
                         $start = \Carbon\Carbon::createFromFormat('Y-m-d H:i', $today->toDateString() . ' ' . date('H:i', strtotime($st->showtime)));
-                        $end = $start->copy()->addHours(2);
+                        $end = $start->copy()->addMinutes($durationMin);
+                        $price = (float) ($movie->price ?? 0);
 
+                        // Pick the cinema with the most bookings (or default to the first configured cinema)
+                        $best = [
+                            'cinema' => $cinemas[0] ?? 'Cinema 1',
+                            'booked' => 0,
+                            'capacity' => (int) ($cinemaConfig[$cinemas[0] ?? 'Cinema 1'] ?? 120),
+                        ];
                         foreach ($cinemas as $cinema) {
                             $booked = BookingItem::where('movie_id', $movie->id)
                                 ->whereDate('booking_date', $today)
@@ -70,21 +83,39 @@ class PageController extends Controller
                                     $b->where('status', '!=', 'Cancelled');
                                 })
                                 ->sum('quantity');
+                            if ($booked >= $best['booked']) {
+                                $best['cinema'] = $cinema;
+                                $best['booked'] = (int) $booked;
+                                $best['capacity'] = (int) ($cinemaConfig[$cinema] ?? $best['capacity']);
+                            }
+                        }
 
-                            $row = [
-                                'movie_id' => $movie->id,
-                                'title' => $movie->title,
-                                'start_time' => $start->format('H:i'),
-                                'end_time' => $end->format('H:i'),
-                                'cinema' => $cinema,
-                                'booked' => (int) $booked,
-                                'capacity' => (int) ($cinemaConfig[$cinema] ?? 120),
-                            ];
+                        $expectedRevenue = $best['booked'] * $price;
+                        $row = [
+                            'movie_id' => $movie->id,
+                            'title' => $movie->title,
+                            'start_time' => $start->format('H:i'),
+                            'end_time' => $end->format('H:i'),
+                            'cinema' => $best['cinema'],
+                            'booked' => $best['booked'],
+                            'capacity' => $best['capacity'],
+                            'expected_revenue' => $expectedRevenue,
+                            'price' => $price,
+                            'duration' => $durationMin,
+                            'progress' => $best['capacity'] > 0 ? round(($best['booked'] / $best['capacity']) * 100) : 0,
+                            'start' => $start,
+                        ];
 
-                            if ($start->lte($now) && $end->gt($now)) {
-                                $nowShowing[] = $row;
-                            } elseif ($start->gt($now)) {
-                                $upcoming[] = $row;
+                        if ($start->lte($now) && $end->gt($now)) {
+                            $nowShowing[] = $row;
+                            $activeBooked += $best['booked'];
+                            $activeCapacity += $best['capacity'];
+                        } elseif ($start->gt($now)) {
+                            $upcoming[] = $row;
+                            $expectedRevenueTotal += $expectedRevenue;
+                            $upcomingReservedTotal += $best['booked'];
+                            if ($nextScreeningTime === null || $start->lt($nextScreeningTime)) {
+                                $nextScreeningTime = $start;
                             }
                         }
                     }
@@ -97,6 +128,11 @@ class PageController extends Controller
                     'now' => $now,
                     'nowShowing' => $nowShowing,
                     'upcomingShowtimes' => $upcoming,
+                    'expectedRevenueTotal' => $expectedRevenueTotal,
+                    'upcomingReservedTotal' => $upcomingReservedTotal,
+                    'upcomingShowsCount' => count($upcoming),
+                    'activeOccupancy' => $activeCapacity > 0 ? round(($activeBooked / $activeCapacity) * 100) : 0,
+                    'nextScreeningTime' => $nextScreeningTime,
                 ]);
             }
         }

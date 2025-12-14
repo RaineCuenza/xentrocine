@@ -299,8 +299,6 @@
     </aside>
     </div>
   </div>
-  
-  {{-- No JS templates needed in non-JS flow --}}
 @endsection
 
 @push('scripts')
