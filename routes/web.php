@@ -184,6 +184,7 @@ Route::middleware(['auth'])->group(function () {
             'price' => 'required|numeric|min:0',
             'poster' => 'nullable|string|max:500',
             'audience' => 'required|in:G,PG,R-13,R-16,R-18',
+            'duration' => 'required|numeric|min:30|max:300',
             'times' => 'required|string',
             'listing_start' => 'required|date',
             'listing_end' => 'required|date|after_or_equal:listing_start',
@@ -214,14 +215,19 @@ Route::middleware(['auth'])->group(function () {
             'price' => $validated['price'],
             'poster' => $posterPath,
             'audience' => $validated['audience'],
+            'duration' => $validated['duration'],
             'listing_start' => $start->toDateString(),
             'listing_end' => $end->toDateString(),
         ]);
 
         // Update showtimes - delete old ones and create new
         App\Models\Showtime::where('movie_id', $movie->id)->delete();
-        foreach (array_filter(array_map('trim', explode(',', $validated['times']))) as $time) {
-            App\Models\Showtime::create(['movie_id' => $movie->id, 'showtime' => $time]);
+        $times = array_filter(array_map('trim', explode(',', $validated['times'])));
+        foreach ($times as $time) {
+            // Validate time format (HH:MM)
+            if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+                App\Models\Showtime::create(['movie_id' => $movie->id, 'showtime' => $time]);
+            }
         }
 
         return redirect()->route('admin.manage')->with('message', 'Movie updated');

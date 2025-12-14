@@ -122,7 +122,7 @@
                   <div class="progress-row__value">{{ $show['progress'] }}%</div>
                 </div>
                 <div class="progress-bar">
-                  <span style="width: {{ min(100, max(0, $show['progress'])) }}%"></span>
+                  <span class="progress-bar__fill" data-bar-width="{{ min(100, max(0, $show['progress'])) }}"></span>
                 </div>
               </div>
             </article>
@@ -169,7 +169,19 @@
                   <div class="progress-row__value">{{ $show['booked'] }}/{{ $show['capacity'] }}</div>
                 </div>
                 <div class="progress-bar">
-                  <span style="width: {{ min(100, max(0, $show['progress'])) }}%"></span>
+                  <span class="progress-bar__fill" data-bar-width="{{ min(100, max(0, $show['progress'])) }}"></span>
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.progress-bar__fill[data-bar-width]').forEach(function(el) {
+    var width = el.getAttribute('data-bar-width');
+    if (width !== null) {
+      el.style.width = width + '%';
+    }
+  });
+});
+</script>
+@endpush
                 </div>
                 <div class="screening-card__footer">
                   <span class="muted">{{ $show['progress'] }}% reserved</span>

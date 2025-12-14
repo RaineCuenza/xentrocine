@@ -811,6 +811,30 @@ input[type="date"]::-webkit-datetime-edit-year-field{
   --kpi-bg-end: rgba(194,65,12,.22);
   --kpi-border:rgba(251,146,60,.32);
 }
+.kpi--green{
+  --kpi-color:#34d399;
+  --kpi-bg-start: rgba(52,211,153,.16);
+  --kpi-bg-end: rgba(16,185,129,.22);
+  --kpi-border:rgba(52,211,153,.36);
+}
+.kpi--blue{
+  --kpi-color:#60a5fa;
+  --kpi-bg-start: rgba(59,130,246,.18);
+  --kpi-bg-end: rgba(37,99,235,.24);
+  --kpi-border:rgba(59,130,246,.38);
+}
+.kpi--purple{
+  --kpi-color:#a855f7;
+  --kpi-bg-start: rgba(124,92,255,.18);
+  --kpi-bg-end: rgba(88,28,135,.26);
+  --kpi-border:rgba(124,92,255,.36);
+}
+.kpi--orange{
+  --kpi-color:#fb923c;
+  --kpi-bg-start: rgba(251,146,60,.16);
+  --kpi-bg-end: rgba(194,65,12,.22);
+  --kpi-border:rgba(251,146,60,.38);
+}
 .admin-intro{
   margin:0.75rem 0 0;
   color:rgba(231,237,243,.7);
@@ -1172,6 +1196,57 @@ input[type="date"]::-webkit-datetime-edit-year-field{
 .stat-card.w-full{width:100%}
 .stat-card.h-fit{height:auto}
 
+/* Admin Analytics Layout */
+.analytics-header{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:12px}
+.analytics-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.analytics-select{background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:var(--text); padding:10px 12px; border-radius:12px; min-width:110px; box-shadow:0 10px 22px rgba(0,0,0,.25)}
+.analytics-export{display:flex; align-items:center; gap:8px}
+.analytics-kpis{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin:12px 0 18px}
+.analytics-grid{display:grid; grid-template-columns:2fr 1.1fr; gap:12px; align-items:start}
+.analytics-grid--main{grid-template-columns:2fr 1.1fr; grid-auto-rows:minmax(140px, auto)}
+.analytics-grid .analytics-panel:nth-of-type(3){grid-column:1/-1}
+.analytics-panel{
+  background:linear-gradient(180deg, rgba(23,26,33,.92), rgba(14,17,26,.95));
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 14px 32px rgba(0,0,0,.32);
+  display:grid;
+  gap:10px;
+}
+.analytics-panel--side{height:100%}
+.analytics-panel--mini{display:flex; flex-direction:column; gap:10px}
+.analytics-panel__header{display:flex; align-items:center; justify-content:space-between}
+.analytics-panel h3{margin:0; font-size:1.05rem; letter-spacing:.01em}
+.analytics-panel__header svg{opacity:.8}
+.trend-list{list-style:none; padding:0; margin:0; display:grid; gap:10px}
+.trend-row{display:grid; gap:6px}
+.trend-row__label{font-weight:700; color:#e5e7eb}
+.trend-row__bars{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.trend-bar{height:8px; background:linear-gradient(135deg, #34d399, #16a34a); border-radius:12px; min-width:12px; transition:width .25s ease}
+.trend-bar--purple{background:linear-gradient(135deg, #a855f7, #6366f1)}
+.trend-row__meta{color:#9aa3b2; font-size:.9rem}
+.top-movies{list-style:none; padding:0; margin:0; display:grid; gap:10px}
+.top-movie{display:flex; align-items:flex-start; gap:12px; border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:12px 14px; background:linear-gradient(180deg, rgba(22,25,33,.9), rgba(14,16,24,.92)); box-shadow:0 12px 26px rgba(0,0,0,.25)}
+.top-movie__rank{font-size:1.4rem; font-weight:700; color:rgba(231,237,243,.65); min-width:24px; line-height:1; flex-shrink:0}
+.top-movie__meta{flex:1; display:flex; flex-direction:column; gap:4px}
+.top-movie__title{font-weight:700; font-size:1.05rem; line-height:1.4; margin:0}
+.top-movie__stats{color:#9aa3b2; font-size:.9rem; line-height:1.4}
+.cinema-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:10px}
+.cinema-card{border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:12px; background:linear-gradient(180deg, rgba(23,26,33,.9), rgba(15,18,27,.92)); display:grid; gap:8px; box-shadow:0 12px 26px rgba(0,0,0,.26)}
+.cinema-card__header{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.cinema-card__revenue{color:#34d399; font-weight:700}
+.cinema-card__meta{color:#9aa3b2; font-size:.9rem}
+.cinema-card__bar{position:relative; width:100%; height:8px; background:rgba(255,255,255,.08); border-radius:8px; overflow:hidden}
+.cinema-card__bar span{position:absolute; inset:0; background:linear-gradient(135deg, #22c55e, #16a34a)}
+.cinema-card__footer{display:flex; align-items:center; justify-content:space-between; color:#e5e7eb; font-weight:600}
+.split-bar{position:relative; display:flex; width:100%; height:10px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+.split-bar__cash{display:block; height:100%; background:linear-gradient(135deg, #34d399, #16a34a)}
+.split-bar__gcash{display:block; height:100%; background:linear-gradient(135deg, #6366f1, #7c3aed)}
+.split-labels{display:flex; align-items:center; justify-content:space-between; color:#e5e7eb; font-size:.9rem; margin-top:4px}
+.trend{display:inline-flex; align-items:center; gap:4px; font-weight:700}
+.trend--up{color:#34d399}
+
 /* Booking Layout - Responsive Two-Column */
 /* Align the sidebar with the content below the sticky header.
   Flexible column sizing based on screen width for optimal viewing. */
@@ -1520,3 +1595,5 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus{
   #agreementWrap,
   #seniorConfirmWrap{padding:10px; margin:10px 0}
 }
+.manage-archived-list{display:grid; gap:12px; margin-top:10px}
+.manage-pagination{margin-top:10px; color:#e5e7eb}

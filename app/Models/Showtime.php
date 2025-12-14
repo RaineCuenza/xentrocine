@@ -42,23 +42,56 @@ class Showtime extends Model
         static::creating(function ($model) {
             // Normalize start time to H:i and compute end_time from movie duration if not provided
             if (!empty($model->showtime)) {
-                $start = \Carbon\Carbon::createFromFormat('H:i', date('H:i', strtotime($model->showtime)));
-                $model->showtime = $start->format('H:i');
-                if (empty($model->end_time)) {
-                    $duration = $model->movie?->duration ?? 90;
-                    $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
+                try {
+                    // Try to parse as H:i format first
+                    if (preg_match('/^\d{1,2}:\d{2}$/', $model->showtime)) {
+                        $start = \Carbon\Carbon::createFromFormat('H:i', $model->showtime);
+                    } else {
+                        // Fallback to strtotime if format doesn't match
+                        $timestamp = strtotime($model->showtime);
+                        if ($timestamp === false) {
+                            throw new \Exception("Invalid time format: {$model->showtime}");
+                        }
+                        $start = \Carbon\Carbon::createFromFormat('H:i', date('H:i', $timestamp));
+                    }
+
+                    $model->showtime = $start->format('H:i');
+                    if (empty($model->end_time)) {
+                        $duration = $model->movie?->duration ?? 90;
+                        $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
+                    }
+                } catch (\Exception $e) {
+                    \Log::error("Failed to parse showtime: " . $e->getMessage());
+                    // Set a default time if parsing fails
+                    $model->showtime = '00:00';
+                    $model->end_time = '02:00';
                 }
             }
         });
 
         static::updating(function ($model) {
             if (!empty($model->showtime)) {
-                $start = \Carbon\Carbon::createFromFormat('H:i', date('H:i', strtotime($model->showtime)));
-                $model->showtime = $start->format('H:i');
-                // Recompute end_time when changing start or when end_time missing
-                if (empty($model->end_time) || $model->isDirty('showtime')) {
-                    $duration = $model->movie?->duration ?? 90;
-                    $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
+                try {
+                    // Try to parse as H:i format first
+                    if (preg_match('/^\d{1,2}:\d{2}$/', $model->showtime)) {
+                        $start = \Carbon\Carbon::createFromFormat('H:i', $model->showtime);
+                    } else {
+                        // Fallback to strtotime if format doesn't match
+                        $timestamp = strtotime($model->showtime);
+                        if ($timestamp === false) {
+                            throw new \Exception("Invalid time format: {$model->showtime}");
+                        }
+                        $start = \Carbon\Carbon::createFromFormat('H:i', date('H:i', $timestamp));
+                    }
+
+                    $model->showtime = $start->format('H:i');
+                    // Recompute end_time when changing start or when end_time missing
+                    if (empty($model->end_time) || $model->isDirty('showtime')) {
+                        $duration = $model->movie?->duration ?? 90;
+                        $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
+                    }
+                } catch (\Exception $e) {
+                    \Log::error("Failed to parse showtime: " . $e->getMessage());
                 }
             }
         });

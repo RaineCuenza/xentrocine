@@ -46,30 +46,32 @@
         </button>
         
         <nav id="primaryNav" class="nav">
-            <a class="nav__link @if (Route::currentRouteName() == 'home') nav__link--active @endif"
-                href="{{ route('home') }}">Home</a>
-            @guest
-                <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
-                    href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+            @php $role = auth()->check() ? auth()->user()->role : null; @endphp
+            @if ($role === 'admin')
+                <a class="nav__link @if (Route::currentRouteName() == 'admin') nav__link--active @endif" href="{{ route('admin') }}">Dashboard</a>
+                <a class="nav__link @if (Route::currentRouteName() == 'admin.manage') nav__link--active @endif" href="{{ route('admin.manage') }}">Manage</a>
             @else
-                @if (auth()->user()->role === 'client')
+                <a class="nav__link @if (Route::currentRouteName() == 'home') nav__link--active @endif"
+                    href="{{ route('home') }}">Home</a>
+                @guest
                     <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
                         href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+                @else
+                    @if (auth()->user()->role === 'client')
+                        <a class="nav__link @if (Route::currentRouteName() == 'booking') nav__link--active @endif"
+                            href="{{ route('booking') }}"><span class="hide-mobile">Booking & Reservation</span><span class="show-mobile">Booking</span></a>
+                    @endif
+                @endguest
+                @if ($role !== 'staff')
+                <a class="nav__link @if (Route::currentRouteName() == 'about') nav__link--active @endif"
+                    href="{{ route('about') }}">About</a>
                 @endif
-            @endguest
-            @php $role = auth()->check() ? auth()->user()->role : null; @endphp
-            @if ($role !== 'staff')
-            <a class="nav__link @if (Route::currentRouteName() == 'about') nav__link--active @endif"
-                href="{{ route('about') }}">About</a>
+                @auth
+                    @if (auth()->user()->role === 'staff')
+                        <a class="nav__link @if (Route::currentRouteName() == 'staff') nav__link--active @endif" href="{{ route('staff') }}">Cashier</a>
+                    @endif
+                @endauth
             @endif
-            @auth
-                @if (auth()->user()->role === 'staff')
-                    <a class="nav__link @if (Route::currentRouteName() == 'staff') nav__link--active @endif" href="{{ route('staff') }}">Cashier</a>
-                @endif
-                @if (auth()->user()->role === 'admin')
-                    <a class="nav__link @if (Route::currentRouteName() == 'admin') nav__link--active @endif" href="{{ route('admin') }}">Manage</a>
-                @endif
-            @endauth
         </nav>
         <div class="account">
             @auth

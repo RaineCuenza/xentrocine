@@ -6,9 +6,13 @@ use App\Models\Movie;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Cinema;
+use App\Models\Showtime;
+use App\Models\User;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PageController extends Controller
 {
@@ -192,8 +196,190 @@ class PageController extends Controller
             return redirect()->route('home')->with('error', 'Unauthorized access');
         }
 
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+        $now = Carbon::now();
+        $periodStart = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $periodEnd = $periodStart->copy()->endOfMonth();
+        $prevStart = $periodStart->copy()->subMonth();
+        $prevEnd = $periodStart->copy()->subSecond();
+        $activeStatuses = ['Paid', 'Pending'];
+
+        $baseItemQuery = DB::table('booking_items')
+            ->join('bookings', 'booking_items.booking_id', '=', 'bookings.id')
+            ->whereIn('bookings.status', $activeStatuses);
+
+        $monthlyRevenue = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+            ->selectRaw('COALESCE(SUM(booking_items.price * booking_items.quantity),0) as total')
+            ->value('total') ?? 0;
+
+        $prevRevenue = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$prevStart->toDateString(), $prevEnd->toDateString()])
+            ->selectRaw('COALESCE(SUM(booking_items.price * booking_items.quantity),0) as total')
+            ->value('total') ?? 0;
+
+        $monthlyTickets = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+            ->sum('booking_items.quantity');
+
+        $monthlyBookings = Booking::whereIn('status', $activeStatuses)
+            ->whereHas('items', function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()]);
+            })
+            ->count();
+
+        $monthlyCustomers = Booking::whereIn('status', $activeStatuses)
+            ->whereHas('items', function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()]);
+            })
+            ->distinct('email')
+            ->count('email');
+
+        $growthPct = $prevRevenue > 0 ? (($monthlyRevenue - $prevRevenue) / $prevRevenue) * 100 : null;
+        $avgTicket = $monthlyTickets > 0 ? $monthlyRevenue / $monthlyTickets : 0;
+
+        // Daily trend (last 7 days)
+        $trendStart = $now->copy()->subDays(6)->startOfDay();
+        $dailyRows = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$trendStart->toDateString(), $now->toDateString()])
+            ->selectRaw('booking_items.booking_date as day, COALESCE(SUM(booking_items.price * booking_items.quantity),0) as revenue, SUM(booking_items.quantity) as tickets, COUNT(DISTINCT booking_items.booking_id) as bookings')
+            ->groupBy('booking_items.booking_date')
+            ->orderBy('booking_items.booking_date')
+            ->get()
+            ->keyBy('day');
+        $dailyTrend = [];
+        for ($i = 0; $i < 7; $i++) {
+            $d = $trendStart->copy()->addDays($i)->toDateString();
+            $row = $dailyRows[$d] ?? null;
+            $dailyTrend[] = [
+                'label' => Carbon::parse($d)->format('D'),
+                'revenue' => $row->revenue ?? 0,
+                'bookings' => $row->bookings ?? 0,
+            ];
+        }
+
+        // Top movies by revenue (current month)
+        $topMovies = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+            ->selectRaw('booking_items.movie_title as title, SUM(booking_items.price * booking_items.quantity) as revenue, SUM(booking_items.quantity) as tickets')
+            ->groupBy('booking_items.movie_title')
+            ->orderByDesc('revenue')
+            ->limit(4)
+            ->get();
+
+        // Cinema performance (current month)
+        $cinemas = Cinema::orderBy('name')->get();
+        $cinemaPerformance = [];
+        foreach ($cinemas as $cinema) {
+            $capacity = (int) ($cinema->capacity ?? 120);
+            $row = (clone $baseItemQuery)
+                ->where('booking_items.cinema', $cinema->name)
+                ->whereBetween('booking_items.booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()])
+                ->selectRaw('SUM(booking_items.price * booking_items.quantity) as revenue, SUM(booking_items.quantity) as tickets, COUNT(DISTINCT CONCAT(booking_items.booking_date, " ", booking_items.showtime)) as screenings')
+                ->first();
+            $tickets = (int) ($row->tickets ?? 0);
+            $screenings = max(1, (int) ($row->screenings ?? 0));
+            $occupancy = $capacity > 0 ? round(($tickets / ($capacity * $screenings)) * 100) : 0;
+            $cinemaPerformance[] = [
+                'name' => $cinema->name,
+                'capacity' => $capacity,
+                'revenue' => (float) ($row->revenue ?? 0),
+                'tickets' => $tickets,
+                'screenings' => $screenings,
+                'occupancy' => max(0, min(100, $occupancy)),
+            ];
+        }
+
+        // Peak hours (last 30 days)
+        $slotDefs = [
+            ['label' => '12:00-15:00', 'start' => '12:00:00', 'end' => '15:00:00'],
+            ['label' => '15:00-18:00', 'start' => '15:00:00', 'end' => '18:00:00'],
+            ['label' => '18:00-21:00', 'start' => '18:00:00', 'end' => '21:00:00'],
+            ['label' => '21:00-01:00', 'start' => '21:00:00', 'end' => '01:00:00'],
+        ];
+        $slotData = [];
+        $recentItems = (clone $baseItemQuery)
+            ->whereBetween('booking_items.booking_date', [$now->copy()->subDays(30)->toDateString(), $now->toDateString()])
+            ->get(['booking_items.showtime', 'booking_items.price', 'booking_items.quantity']);
+        foreach ($slotDefs as $slot) {
+            $slotData[$slot['label']] = ['bookings' => 0, 'revenue' => 0];
+        }
+        foreach ($recentItems as $item) {
+            $time = Carbon::parse($item->showtime)->format('H:i:s');
+            foreach ($slotDefs as $slot) {
+                $inSlot = false;
+                if ($slot['start'] < $slot['end']) {
+                    $inSlot = $time >= $slot['start'] && $time < $slot['end'];
+                } else {
+                    $inSlot = $time >= $slot['start'] || $time < $slot['end'];
+                }
+                if ($inSlot) {
+                    $slotData[$slot['label']]['bookings'] += 1;
+                    $slotData[$slot['label']]['revenue'] += (float) ($item->price * $item->quantity);
+                    break;
+                }
+            }
+        }
+
+        // Payment split (current month)
+        $paymentRows = Booking::whereIn('status', $activeStatuses)
+            ->whereHas('items', function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('booking_date', [$periodStart->toDateString(), $periodEnd->toDateString()]);
+            })
+            ->selectRaw('payment_method, COUNT(*) as count')
+            ->groupBy('payment_method')
+            ->pluck('count', 'payment_method');
+        $paymentTotals = [
+            'cash' => (int) ($paymentRows['cash'] ?? 0),
+            'gcash' => (int) ($paymentRows['gcash'] ?? $paymentRows['digital'] ?? 0),
+        ];
+        $paymentTotalCount = array_sum($paymentTotals);
+        $paymentSplit = [
+            'cash' => $paymentTotalCount ? round(($paymentTotals['cash'] / $paymentTotalCount) * 100) : 0,
+            'gcash' => $paymentTotalCount ? round(($paymentTotals['gcash'] / $paymentTotalCount) * 100) : 0,
+        ];
+
+        // Customer type breakdown (placeholder until explicit flags are stored)
+        $customerTypes = [
+            'regular' => 100,
+            'senior' => 0,
+        ];
+
+        $analytics = [
+            'period' => [
+                'month' => $periodStart->format('F'),
+                'year' => $periodStart->year,
+            ],
+            'month' => [
+                'revenue' => $monthlyRevenue,
+                'prevRevenue' => $prevRevenue,
+                'growthPct' => $growthPct,
+                'customers' => $monthlyCustomers,
+                'bookings' => $monthlyBookings,
+                'tickets' => $monthlyTickets,
+                'avgTicket' => $avgTicket,
+            ],
+            'dailyTrend' => $dailyTrend,
+            'topMovies' => $topMovies,
+            'cinemas' => $cinemaPerformance,
+            'peakHours' => $slotData,
+            'paymentSplit' => $paymentSplit,
+            'customerTypes' => $customerTypes,
+        ];
+
+        return view('admin', [
+            'analytics' => $analytics,
+        ]);
+    }
+
+    public function adminManage(Request $request)
+    {
+        if (!Auth::check() || Auth::user()->role !== 'admin') {
+            return redirect()->route('home')->with('error', 'Unauthorized access');
+        }
+
         // --- Movies filters & pagination (separate Active vs Archived) ---
-        // Active movies filters
         $mSearchActive = trim((string) $request->query('m_q_a', ''));
         $mAudienceActive = $request->query('m_audience_a', 'all');
         $moviesActiveQuery = Movie::with('showtimes')->withCount('bookingItems')->where('is_active', true);
@@ -205,7 +391,6 @@ class PageController extends Controller
         }
         $moviesActive = $moviesActiveQuery->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
 
-        // Archived movies filters
         $mSearchArchived = trim((string) $request->query('m_q_r', ''));
         $mAudienceArchived = $request->query('m_audience_r', 'all');
         $moviesArchivedQuery = Movie::with('showtimes')->withCount('bookingItems')->where('is_active', false);
@@ -218,7 +403,7 @@ class PageController extends Controller
         $moviesArchived = $moviesArchivedQuery->orderBy('updated_at', 'desc')->paginate(10)->withQueryString();
 
         // --- Bookings filters & pagination ---
-    $bQuery = Booking::with(['items.movie', 'user']);
+        $bQuery = Booking::with(['items.movie', 'user']);
         $bSearchTitle = trim((string) $request->query('b_q', ''));
         $bStatus = $request->query('b_status', 'all'); // all|Paid|Pending|Cancelled
         $bFrom = $request->query('b_from');
@@ -245,7 +430,6 @@ class PageController extends Controller
 
         $bookingsPaginated = $bQuery->orderBy('created_at', 'desc')->paginate(12)->withQueryString();
 
-        // Calculate KPIs
         $kpis = [
             'movies' => Movie::where('is_active', true)->count(),
             'movies_archived' => Movie::where('is_active', false)->count(),
@@ -257,7 +441,7 @@ class PageController extends Controller
 
         $cinemas = Cinema::orderBy('name')->get();
 
-        return view('admin', [
+        return view('admin-manage', [
             'moviesActive' => $moviesActive,
             'moviesArchived' => $moviesArchived,
             'bookings' => $bookingsPaginated,
