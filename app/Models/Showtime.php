@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 class Showtime extends Model
 {
@@ -23,8 +24,7 @@ class Showtime extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'showtime' => 'datetime:H:i',
-        'end_time' => 'datetime:H:i',
+        // Store as strings, not datetime - the boot method handles formatting
     ];
 
     /**
@@ -61,7 +61,7 @@ class Showtime extends Model
                         $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
                     }
                 } catch (\Exception $e) {
-                    \Log::error("Failed to parse showtime: " . $e->getMessage());
+                    Log::error("Failed to parse showtime: " . $e->getMessage());
                     // Set a default time if parsing fails
                     $model->showtime = '00:00';
                     $model->end_time = '02:00';
@@ -91,7 +91,7 @@ class Showtime extends Model
                         $model->end_time = $start->copy()->addMinutes($duration)->format('H:i');
                     }
                 } catch (\Exception $e) {
-                    \Log::error("Failed to parse showtime: " . $e->getMessage());
+                    Log::error("Failed to parse showtime: " . $e->getMessage());
                 }
             }
         });

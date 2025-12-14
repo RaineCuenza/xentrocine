@@ -29,7 +29,6 @@ class BookingItem extends Model
      */
     protected $casts = [
         'booking_date' => 'date',
-        'showtime' => 'datetime:H:i',
         'price' => 'decimal:2',
     ];
 

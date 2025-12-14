@@ -133,9 +133,23 @@
         <small>© <span id="year"></span> XentroCine</small>
     </footer>
 
-    @stack('scripts')
+        @stack('scripts')
     
     <script>
+        // Expose minimal current user state for client-side UX (verification banner, etc.)
+        @php
+            $currentUserForJs = auth()->check()
+                ? [
+                    'id' => auth()->user()->id,
+                    'name' => auth()->user()->name,
+                    'email' => auth()->user()->email,
+                    'role' => auth()->user()->role,
+                    'email_verified' => !is_null(auth()->user()->email_verified_at),
+                ]
+                : null;
+        @endphp
+        window.currentUser = @json($currentUserForJs);
+
         // Mobile menu toggle
         const mobileToggle = document.getElementById('mobileMenuToggle');
         const siteHeader = document.querySelector('.site-header');

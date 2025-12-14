@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
@@ -34,14 +35,25 @@ class AuthController extends Controller
                 'role' => $validated['role'] ?? 'client',
             ]);
 
-            // Fire the Registered event to send verification email
-            event(new Registered($user));
+            // Try to send verification email but don't block signup if mailer fails
+            $verificationSent = true;
+            try {
+                event(new Registered($user));
+            } catch (\Throwable $mailError) {
+                $verificationSent = false;
+                Log::warning('[Signup] Failed to send verification email', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $mailError->getMessage(),
+                ]);
+            }
 
             // Log the user in (they can browse but not book until verified)
             Auth::login($user);
 
             return response()->json([
                 'success' => true,
+                'verification_email_sent' => $verificationSent,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -49,7 +61,9 @@ class AuthController extends Controller
                     'role' => $user->role,
                     'email_verified' => !is_null($user->email_verified_at),
                 ],
-                'message' => 'Account created! Check your email to verify your account.',
+                'message' => $verificationSent
+                    ? 'Account created! Check your email to verify your account.'
+                    : 'Account created! We could not send the verification email right now. Please request a new verification email after logging in.',
             ]);
         } catch (ValidationException $e) {
             $errors = $e->errors();
@@ -184,10 +198,24 @@ class AuthController extends Controller
                 'role' => 'client',
             ]);
 
-            event(new Registered($user));
+            $verificationSent = true;
+            try {
+                event(new Registered($user));
+            } catch (\Throwable $mailError) {
+                $verificationSent = false;
+                Log::warning('[Web Signup] Failed to send verification email', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $mailError->getMessage(),
+                ]);
+            }
+
             Auth::login($user);
             $request->session()->regenerate();
-            return redirect()->route('booking')->with('message', 'Account created! Please verify your email.');
+            $message = $verificationSent
+                ? 'Account created! Please verify your email.'
+                : 'Account created! Verification email could not be sent right now. After logging in, click "Resend verification" to get the link.';
+            return redirect()->route('booking')->with('message', $message);
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
@@ -251,8 +279,19 @@ class AuthController extends Controller
             ], 400);
         }
 
-        // Send verification notification
-        $user->notify(new VerifyEmail);
+        try {
+            // Send verification notification
+            $user->notify(new VerifyEmail);
+        } catch (\Throwable $e) {
+            Log::warning('[Resend Verification] Failed to send email', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'error' => 'Could not send verification email right now (mailer issue). Please try again later.',
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,

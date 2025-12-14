@@ -33,6 +33,7 @@ const goCheckoutBtnEl = document.getElementById('goCheckoutBtn');
 const clearCartBtnEl = document.getElementById('clearCartBtn');
 const verificationBanner = document.getElementById('verificationBanner');
 const resendVerificationBtn = document.getElementById('resendVerificationBtn');
+const resendVerificationMsg = document.getElementById('resendVerificationMsg');
 const paymentSection = document.getElementById('paymentSection');
 const checkoutItemsEl = document.getElementById('checkoutItems');
 const checkoutTotalEl = document.getElementById('checkoutTotal');
@@ -114,7 +115,30 @@ function initHomePage() {
 }
 
 // ---------- Booking Page ----------
-function initBookingPage() { /* Booking now uses standard Blade forms */ }
+function initBookingPage() {
+  const user = window.currentUser || state.currentUser;
+  if (verificationBanner && user && !user.email_verified) {
+    verificationBanner.style.display = '';
+  }
+
+  if (resendVerificationBtn) {
+    resendVerificationBtn.addEventListener('click', async () => {
+      resendVerificationMsg && (resendVerificationMsg.textContent = '');
+      resendVerificationBtn.disabled = true;
+      const original = resendVerificationBtn.textContent;
+      resendVerificationBtn.textContent = 'Sending...';
+      try {
+        const data = await apiCall('/auth/email/resend', { method: 'POST' });
+        resendVerificationMsg && (resendVerificationMsg.textContent = data.message || 'Verification email sent.');
+      } catch (err) {
+        resendVerificationMsg && (resendVerificationMsg.textContent = err.message || 'Failed to resend verification email.');
+      } finally {
+        resendVerificationBtn.disabled = false;
+        resendVerificationBtn.textContent = original;
+      }
+    });
+  }
+}
 
 // ---------- Admin Page ----------
 async function initAdminPage() {
@@ -671,6 +695,8 @@ function initQRTestPage() {
 // ---------- Global Initialization ----------
 async function initGlobal() {
   setupMobileNav();
+  // Sync minimal user state from Blade
+  state.currentUser = window.currentUser || null;
 
   // Set current year in footer
   if (yearEl) yearEl.textContent = new Date().getFullYear();

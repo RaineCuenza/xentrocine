@@ -37,6 +37,9 @@ class Movie extends Model
         'available_until',
         'listing_start',
         'listing_end',
+        'total_attendance',
+        'view_count',
+        'popularity_score',
     ];
 
     /**
@@ -51,6 +54,9 @@ class Movie extends Model
         'available_until' => 'date',
         'listing_start' => 'date',
         'listing_end' => 'date',
+        'total_attendance' => 'integer',
+        'view_count' => 'integer',
+        'popularity_score' => 'decimal:2',
     ];
 
     /**
@@ -105,5 +111,120 @@ class Movie extends Model
     public function bookingItems()
     {
         return $this->hasMany(BookingItem::class, 'movie_id', 'id');
+    }
+
+    /**
+     * Calculate and update total attendance from booking items
+     */
+    public function updateAttendance()
+    {
+        $totalAttendance = $this->bookingItems()
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 'Cancelled');
+            })
+            ->whereDate('booking_date', '<=', today())
+            ->sum('quantity');
+
+        $this->update(['total_attendance' => $totalAttendance]);
+        return $totalAttendance;
+    }
+
+    /**
+     * Calculate and update view count (number of unique booking sessions)
+     */
+    public function updateViewCount()
+    {
+        $viewCount = $this->bookingItems()
+            ->whereHas('booking', function ($query) {
+                $query->where('status', '!=', 'Cancelled');
+            })
+            ->whereDate('booking_date', '<=', today())
+            ->count();
+
+        $this->update(['view_count' => $viewCount]);
+        return $viewCount;
+    }
+
+    /**
+     * Calculate and update popularity score
+     * Formula: (total_attendance * 0.7) + (view_count * 0.2) + (recency_factor * 0.1)
+     */
+    public function updatePopularityScore()
+    {
+        $attendance = $this->total_attendance ?? 0;
+        $views = $this->view_count ?? 0;
+
+        $daysSinceCreated = now()->diffInDays($this->created_at);
+        $recencyFactor = max(0, 100 - $daysSinceCreated);
+
+        $popularityScore = ($attendance * 0.7) + ($views * 0.2) + ($recencyFactor * 0.1);
+
+        $this->update(['popularity_score' => $popularityScore]);
+        return $popularityScore;
+    }
+
+    /**
+     * Update all metrics at once
+     */
+    public function updateMetrics()
+    {
+        $this->updateAttendance();
+        $this->updateViewCount();
+        $this->updatePopularityScore();
+    }
+
+    /**
+     * Scope: Get movies that are currently showing
+     */
+    public function scopeNowShowing($query)
+    {
+        $today = today();
+        return $query->where('is_active', true)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('listing_start')
+                  ->orWhereDate('listing_start', '<=', $today);
+            })
+            ->where(function ($q) use ($today) {
+                $q->whereNull('listing_end')
+                  ->orWhereDate('listing_end', '>=', $today);
+            });
+    }
+
+    /**
+     * Scope: Get movies coming soon
+     */
+    public function scopeComingSoon($query)
+    {
+        $today = today();
+        return $query->where('is_active', true)
+            ->whereNotNull('listing_start')
+            ->whereDate('listing_start', '>', $today);
+    }
+
+    /**
+     * Scope: Get most attended movies
+     */
+    public function scopeMostAttended($query)
+    {
+        return $query->where('is_active', true)
+            ->orderByDesc('total_attendance');
+    }
+
+    /**
+     * Scope: Get most popular movies
+     */
+    public function scopeMostPopular($query)
+    {
+        return $query->where('is_active', true)
+            ->orderByDesc('popularity_score');
+    }
+
+    /**
+     * Scope: Get top watched movies
+     */
+    public function scopeTopWatched($query)
+    {
+        return $query->where('is_active', true)
+            ->orderByDesc('view_count');
     }
 }

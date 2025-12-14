@@ -141,12 +141,35 @@ class PageController extends Controller
             }
         }
 
-        $movies = Movie::with('showtimes')
-            ->where('is_active', true)
-            ->orderBy('created_at', 'desc')
+        // Fetch movies for different categories with proper sorting
+        $mostAttended = Movie::with('showtimes')
+            ->mostAttended()
+            ->limit(10)
             ->get();
 
-        return view('index', compact('movies'));
+        $nowShowing = Movie::with('showtimes')
+            ->nowShowing()
+            ->orderByDesc('popularity_score')
+            ->limit(10)
+            ->get();
+
+        $mostPopular = Movie::with('showtimes')
+            ->mostPopular()
+            ->limit(10)
+            ->get();
+
+        $topWatched = Movie::with('showtimes')
+            ->topWatched()
+            ->limit(10)
+            ->get();
+
+        $comingSoon = Movie::with('showtimes')
+            ->comingSoon()
+            ->orderBy('listing_start')
+            ->limit(10)
+            ->get();
+
+        return view('index', compact('mostAttended', 'nowShowing', 'mostPopular', 'topWatched', 'comingSoon'));
     }
 
     /**
@@ -349,6 +372,7 @@ class PageController extends Controller
         $analytics = [
             'period' => [
                 'month' => $periodStart->format('F'),
+                'monthNum' => $periodStart->month,
                 'year' => $periodStart->year,
             ],
             'month' => [

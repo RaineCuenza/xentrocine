@@ -12,13 +12,24 @@
       <p class="admin-intro">Monthly revenue, trends, and operational insights at a glance.</p>
     </div>
     <div class="analytics-actions">
-      <select class="analytics-select" disabled>
-        <option>{{ $analytics['period']['month'] ?? now()->format('F') }}</option>
+      <select class="analytics-select" id="monthSelect">
+        @foreach(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as $idx => $monthName)
+          <option value="{{ $idx + 1 }}" {{ ($analytics['period']['monthNum'] ?? now()->month) == $idx + 1 ? 'selected' : '' }}>
+            {{ $monthName }}
+          </option>
+        @endforeach
       </select>
-      <select class="analytics-select" disabled>
-        <option>{{ $analytics['period']['year'] ?? now()->format('Y') }}</option>
+      <select class="analytics-select" id="yearSelect">
+        @php
+          $currentYear = now()->year;
+          $startYear = 2020; // Adjust as needed
+        @endphp
+        @for($y = $currentYear; $y >= $startYear; $y--)
+          <option value="{{ $y }}" {{ ($analytics['period']['year'] ?? now()->year) == $y ? 'selected' : '' }}>
+            {{ $y }}
+          </option>
+        @endfor
       </select>
-      <button class="btn btn--ghost analytics-export" type="button">Export Report</button>
     </div>
   </div>
 
@@ -237,6 +248,26 @@ document.addEventListener('DOMContentLoaded', function() {
       el.style.background = bg;
     }
   });
+
+  // Handle month/year dropdown changes
+  var monthSelect = document.getElementById('monthSelect');
+  var yearSelect = document.getElementById('yearSelect');
+
+  function updateDashboard() {
+    var month = monthSelect.value;
+    var year = yearSelect.value;
+    var url = new URL(window.location.href);
+    url.searchParams.set('month', month);
+    url.searchParams.set('year', year);
+    window.location.href = url.toString();
+  }
+
+  if (monthSelect) {
+    monthSelect.addEventListener('change', updateDashboard);
+  }
+  if (yearSelect) {
+    yearSelect.addEventListener('change', updateDashboard);
+  }
 });
 </script>
 @endpush

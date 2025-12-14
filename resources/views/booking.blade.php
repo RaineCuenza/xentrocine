@@ -12,14 +12,6 @@
     @endif
   @endauth
 
-  <div id="verificationBanner" class="verification-banner" style="display:none">
-    <div class="verification-banner__content">
-      <strong>Please verify your email</strong>
-      <p>You need to verify your email address before you can book tickets.</p>
-      <button id="resendVerificationBtn" class="btn btn--primary">Resend Verification Email</button>
-    </div>
-  </div>
-
   @if(session('message'))
     @php
       $msg = session('message');
