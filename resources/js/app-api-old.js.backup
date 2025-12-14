@@ -1033,7 +1033,7 @@ async function initQRScanner() {
           console.error('Failed to start QR scanner:', err2);
           cameraPreview.innerHTML = `
             <div style="text-align:center;padding:40px;background:#f8d7da;border-radius:8px;color:#721c24">
-              <p style="font-weight:600;margin-bottom:10px">⚠️ Camera Access Required</p>
+              <p style="font-weight:600;margin-bottom:10px">Camera Access Required</p>
               <p style="font-size:0.9rem">Please allow camera access in your browser settings to use QR scanning.</p>
               <p style="font-size:0.85rem;margin-top:15px;color:#555">You can still use manual token entry below.</p>
             </div>

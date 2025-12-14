@@ -45,7 +45,7 @@ All primary entities use **string IDs with auto-generation**:
 $model->id = 'prefix_' . Str::random(6) . substr(base_convert(time(), 10, 36), -4);
 // Examples: u_abc123xyz, mv100, bk_def456abc
 ```
-⚠️ **Always set** `public $incrementing = false;` and `protected $keyType = 'string';` in models using this pattern.
+**Always set** `public $incrementing = false;` and `protected $keyType = 'string';` in models using this pattern.
 
 ### Session-Based Authentication
 - Uses Laravel's built-in session auth (not Sanctum/Passport)
