@@ -298,9 +298,10 @@ async function initQRScanner() {
       const badgeClass = isPending ? 'badge--pending' : 'badge--paid';
       const badgeLabel = isPending ? 'Pending payment' : 'Ready to check in';
 
-      const items = booking.items || [];
-      const firstItem = items[0] || {};
-      const seats = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+      const movieTitle = booking.movie || '-';
+      const sessionTime = booking.time || '';
+      const cinemaName = booking.cinema || '';
+      const seats = booking.pax || 0;
 
       const actions = [];
       if (isPending) {
@@ -321,9 +322,9 @@ async function initQRScanner() {
             <strong>${formatPeso(booking.total)}</strong>
           </div>
           <div class="result-meta">
-            <div><small class="muted">Movie</small><div>${firstItem.movie_title || '-'}</div></div>
-            <div><small class="muted">Session</small><div>${firstItem.time || ''} - ${firstItem.cinema || ''}</div></div>
-            <div><small class="muted">Tickets</small><div>${seats || 0} pax</div></div>
+            <div><small class="muted">Movie</small><div>${movieTitle}</div></div>
+            <div><small class="muted">Session</small><div>${sessionTime} - ${cinemaName}</div></div>
+            <div><small class="muted">Tickets</small><div>${seats} pax</div></div>
             <div><small class="muted">Status</small><div>${booking.status || '-'}</div></div>
           </div>
           <div class="btn-row">${actions.join('')}</div>

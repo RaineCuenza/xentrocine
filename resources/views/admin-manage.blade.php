@@ -24,6 +24,7 @@
 .manage-section-title {margin:0; font-size: 1.2rem;}
 .manage-section-subtitle {margin:0; color: rgba(231,237,243,.65);}
 .manage-movies-list {display: grid; gap: 1rem;}
+.manage-bookings {display: grid; gap: 1rem;}
 .manage-movie-item, .manage-booking-card, .manage-cinema-card {background: rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 1rem;}
 .manage-movie-header, .manage-booking-header, .manage-cinema-header {display:flex; align-items:flex-start; justify-content: space-between; gap: .75rem;}
 .manage-movie-title {margin:0;}
@@ -51,6 +52,7 @@
 .manage-booking-status--pending {background:#f59e0b; color:#fff;}
 .manage-booking-status--cancelled {background:#ef4444; color:#fff;}
 .manage-booking-actions {display:flex; gap:.5rem; align-items:flex-start;}
+.manage-booking-customer {margin:0; font-weight:700;}
 .manage-booking-email, .manage-booking-timestamp {margin:0; color: rgba(231,237,243,.6);}
 .manage-detail-label {color: rgba(231,237,243,.6); font-size:.78rem; margin:0;}
 .manage-detail-value {margin:0; font-weight:700;}
@@ -500,12 +502,12 @@
         </div>
         <div class="manage-field" data-field="listing_start">
           <label class="manage-field__label manage-field__label--required">Listing Start</label>
-          <input name="listing_start" type="date" value="{{ now()->toDateString() }}" required class="manage-input" />
+          <input name="listing_start" type="date" value="{{ now()->toDateString() }}" min="{{ now()->toDateString() }}" required class="manage-input" />
           <span class="manage-field__error">Listing start date is required</span>
         </div>
         <div class="manage-field" data-field="listing_end">
           <label class="manage-field__label manage-field__label--required">Listing End</label>
-          <input name="listing_end" type="date" value="{{ now()->toDateString() }}" required class="manage-input" />
+          <input name="listing_end" type="date" value="{{ now()->toDateString() }}" min="{{ now()->toDateString() }}" required class="manage-input" />
           <span class="manage-field__error">Listing end date is required</span>
         </div>
         <div class="manage-field manage-field--wide" data-field="times">
@@ -839,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isValid = audienceSelect.value.length > 0;
         break;
       case 'listing_start':
-        const startInput = fieldWrapper.querySelector('[name="listing_start"]');
+        const startInput = fieldWrapper.querySelector('[]');
         isValid = startInput.value.length > 0;
         break;
       case 'listing_end':

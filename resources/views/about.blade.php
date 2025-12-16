@@ -137,7 +137,6 @@
     <article class="cinema-card cinema-card--offline">
       <header class="cinema-card__header">
         <h3>Cinema 2 — Luxe</h3>
-        <span class="cinema-card__badge">Under Maintenance</span>
       </header>
       <p>Designed with lounge pods and cozy lighting, currently dimmed/disabled with a yellow “Under Maintenance” tag overlay.</p>
     </article>

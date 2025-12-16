@@ -187,7 +187,7 @@ class MovieController extends Controller
                 // Optional availability end date; capped at +1 month
                 'available_until' => 'nullable|date',
                 // New listing window fields
-                'listing_start' => 'required|date',
+                'listing_start' => 'required|date|after_or_equal:today',
                 'listing_end' => 'required|date|after_or_equal:listing_start',
             ]);
 
