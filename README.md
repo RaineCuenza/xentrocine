@@ -172,7 +172,7 @@
     ## Default accounts (after seeding)
 
     - Admin: `admin@admin` / `@dmin_123`
-    - Staff: `staff@staff` / `St@ff_123`
+    - Staff: `staff@staff` / `P@ssword_123`
     - Client: `client@client` / `P@ssword_123`
 
     ## Useful commands
